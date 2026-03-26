@@ -1,5 +1,5 @@
-import PropTypes from 'prop-types'
 import { useState, useEffect, useRef, useMemo } from 'react'
+import PropTypes from 'prop-types'
 import { parseSystems, getPlanetsBySystem, parsePlanetResources } from '../utils/dataParser'
 import { MINERAL_COLORS, UI_THEME } from '../utils/colors'
 import mineralsData from '../data/minerals_list.json'
@@ -326,5 +326,9 @@ export default function ResourceSearch({ onSearch }) {
 }
 
 ResourceSearch.propTypes = {
-  onSearch: PropTypes.func
+  onSearch: PropTypes.func.isRequired
+}
+
+ResourceSearch.defaultProps = {
+  onSearch: null
 }
