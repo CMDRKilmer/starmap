@@ -1,43 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { parseSystems, getPlanetsBySystem, parsePlanetResources } from '../utils/dataParser'
+import { MINERAL_COLORS } from '../utils/colors'
+import mineralsData from '../data/minerals_list.json'
 
-const MINERAL_COLORS = {
-  'GAL': '#B8860B',
-  'BRM': '#CD853F',
-  'SIO': '#808080',
-  'H2O': '#4169E1',
-  'TAI': '#C0C0C0',
-  'HE': '#FFB6C1',
-  'FEO': '#8B4513',
-  'MAG': '#90EE90',
-  'CU': '#B87333',
-  'AU': '#FFD700',
-  'AG': '#C0C0C0',
-  'PT': '#E5E4E2',
-  'NI': '#727472',
-  'CO': '#0047AB',
-  'WI': '#2F4F4F',
-  'MN': '#9B59B6',
-  'CR': '#A29BFE',
-  'HG': '#E74C3C',
-  'PB': '#34495E',
-  'UR': '#27AE60',
-  'TH': '#16A085',
-  'LI': '#F1C40F',
-  'SI': '#95A5A6',
-  'NA': '#9B59B6',
-  'K': '#8E44AD'
-}
+// 创建资源代码到中文名称的映射
+const RESOURCE_NAME_MAP = {}
+mineralsData.minerals.forEach(m => {
+  RESOURCE_NAME_MAP[m.code] = m.name
+})
 
-function getMineralName(code) {
-  const names = {
-    'GAL': '镓', 'BRM': '钡', 'SIO': '二氧化硅', 'H2O': '水', 'TAI': '钛',
-    'HE': '氦', 'FEO': '氧化铁', 'MAG': '镁', 'CU': '铜', 'AU': '金',
-    'AG': '银', 'PT': '铂', 'NI': '镍', 'CO': '钴', 'WI': '钨',
-    'MN': '锰', 'CR': '铬', 'HG': '汞', 'PB': '铅', 'UR': '铀',
-    'TH': '钍', 'LI': '锂', 'SI': '硅', 'NA': '钠', 'K': '钾'
-  }
-  return names[code] || code
+// 获取资源的中文名称
+function getResourceName(ticker) {
+  return RESOURCE_NAME_MAP[ticker] || ticker
 }
 
 export default function MineralSearch({ onSearch }) {
@@ -54,7 +28,7 @@ export default function MineralSearch({ onSearch }) {
       if (!mineralMap[r.Ticker]) {
         mineralMap[r.Ticker] = {
           code: r.Ticker,
-          name: getMineralName(r.Ticker),
+          name: getResourceName(r.Ticker),
           color: MINERAL_COLORS[r.Ticker] || '#888888',
           count: 0
         }
@@ -155,7 +129,7 @@ export default function MineralSearch({ onSearch }) {
         marginBottom: '12px'
       }}>
         <span style={{ color: '#00FFFF', fontWeight: 'bold', fontSize: '14px' }}>
-          矿产筛选
+          资源筛选
         </span>
 
         <div style={{ position: 'relative', flex: 1 }} ref={dropdownRef}>
@@ -177,8 +151,8 @@ export default function MineralSearch({ onSearch }) {
           >
             <span>
               {selectedMinerals.length === 0
-                ? '请选择矿产类型'
-                : `${selectedMinerals.length} 个矿产已选`}
+                ? '请选择资源类型'
+                : `${selectedMinerals.length} 个资源已选`}
             </span>
             <span style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
               ▼
@@ -206,7 +180,7 @@ export default function MineralSearch({ onSearch }) {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="搜索矿产..."
+                  placeholder="搜索资源..."
                   style={{
                     width: '100%',
                     padding: '6px 10px',
@@ -229,7 +203,7 @@ export default function MineralSearch({ onSearch }) {
                     color: 'rgba(255, 255, 255, 0.5)',
                     fontSize: '12px'
                   }}>
-                    未找到匹配的矿产
+                    未找到匹配的资源
                   </div>
                 ) : (
                   <div style={{

@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { UI_THEME } from '../utils/colors'
 
 export default function SectorNav({ sectors, onSectorClick }) {
@@ -52,4 +53,9 @@ export default function SectorNav({ sectors, onSectorClick }) {
       </div>
     </div>
   )
+}
+
+SectorNav.propTypes = {
+  sectors: PropTypes.object.isRequired,
+  onSectorClick: PropTypes.func.isRequired
 }

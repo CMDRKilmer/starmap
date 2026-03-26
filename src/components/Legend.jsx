@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { FACTION_COLORS, UI_THEME } from '../utils/colors'
 
 export default function Legend() {
@@ -64,3 +65,5 @@ export default function Legend() {
     </div>
   )
 }
+
+Legend.propTypes = {}

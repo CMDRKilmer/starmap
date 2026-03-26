@@ -1,4 +1,17 @@
-import { getEnvColor, UI_THEME } from '../utils/colors'
+import PropTypes from 'prop-types'
+import { getEnvColor, UI_THEME, MINERAL_COLORS } from '../utils/colors'
+import mineralsData from '../data/minerals_list.json'
+
+// 创建资源代码到中文名称的映射
+const RESOURCE_NAME_MAP = {}
+mineralsData.minerals.forEach(m => {
+  RESOURCE_NAME_MAP[m.code] = m.name
+})
+
+// 获取资源的中文名称
+function getResourceName(ticker) {
+  return RESOURCE_NAME_MAP[ticker] || ticker
+}
 
 export default function PlanetCard({ planet }) {
   return (
@@ -50,7 +63,7 @@ export default function PlanetCard({ planet }) {
         )}
         {planet.Surface && (
           <span style={{ color: UI_THEME.white }}>
-            类型: <span style={{ color: planet.Surface === 'True' ? '#FFA500' : '#87CEEB' }}>
+            类型: <span style={{ color: planet.Surface === 'True' ? UI_THEME.rockColor : UI_THEME.gasColor }}>
               {planet.Surface === 'True' ? '岩质' : '气态'}
             </span>
           </span>
@@ -78,12 +91,19 @@ export default function PlanetCard({ planet }) {
           paddingTop: '10px',
           borderTop: `1px solid ${UI_THEME.border}`
         }}>
-          <div style={{ color: UI_THEME.secondary, marginBottom: '8px', fontSize: '13px' }}>矿产:</div>
+          <div style={{ color: UI_THEME.secondary, marginBottom: '8px', fontSize: '13px' }}>资源:</div>
           <div style={{ gap: '8px', display: 'flex', flexDirection: 'column' }}>
             {planet.Resources.map((resource, index) => (
               <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                  <span style={{ color: UI_THEME.white }}>{resource.Ticker} ({resource.Type})</span>
+                  <span style={{ color: UI_THEME.white }}>
+                    <span style={{ color: MINERAL_COLORS[resource.Ticker] || UI_THEME.white, fontWeight: 'bold' }}>
+                      {resource.Ticker}
+                    </span>
+                    <span style={{ color: UI_THEME.textMuted, marginLeft: '4px' }}>
+                      {getResourceName(resource.Ticker)}
+                    </span>
+                  </span>
                   <span style={{ color: UI_THEME.white }}>{(resource.Factor * 100).toFixed(1)}%</span>
                 </div>
                 <div style={{
@@ -97,7 +117,7 @@ export default function PlanetCard({ planet }) {
                     style={{
                       width: `${Math.min(resource.Factor * 100, 100)}%`,
                       height: '100%',
-                      background: UI_THEME.primary,
+                      background: MINERAL_COLORS[resource.Ticker] || UI_THEME.primary,
                       borderRadius: '3px'
                     }}
                   />
@@ -109,4 +129,25 @@ export default function PlanetCard({ planet }) {
       )}
     </div>
   )
+}
+
+PlanetCard.propTypes = {
+  planet: PropTypes.shape({
+    Name: PropTypes.string,
+    Gravity: PropTypes.string,
+    Temperature: PropTypes.string,
+    Pressure: PropTypes.string,
+    Fertility: PropTypes.string,
+    Surface: PropTypes.string,
+    HasLocalMarket: PropTypes.bool,
+    HasChamberOfCommerce: PropTypes.bool,
+    HasWarehouse: PropTypes.bool,
+    HasAdministrationCenter: PropTypes.bool,
+    HasShipyard: PropTypes.bool,
+    Resources: PropTypes.arrayOf(PropTypes.shape({
+      Ticker: PropTypes.string,
+      Type: PropTypes.string,
+      Factor: PropTypes.number
+    }))
+  }).isRequired
 }

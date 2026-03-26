@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import { MINERAL_COLORS } from '../utils/colors'
+import mineralsData from '../data/minerals_list.json'
 
-const MINERAL_COLORS = {
-  'GAL': '#B8860B', 'BRM': '#CD853F', 'SIO': '#808080', 'H2O': '#4169E1',
-  'TAI': '#C0C0C0', 'HE': '#FFB6C1', 'FEO': '#8B4513', 'MAG': '#90EE90',
-  'CU': '#B87333', 'AU': '#FFD700', 'AG': '#C0C0C0', 'PT': '#E5E4E2',
-  'NI': '#727472', 'CO': '#0047AB', 'WI': '#2F4F4F', 'MN': '#9B59B6',
-  'CR': '#A29BFE', 'HG': '#E74C3C', 'PB': '#34495E', 'UR': '#27AE60',
-  'TH': '#16A085', 'LI': '#F1C40F', 'SI': '#95A5A6', 'NA': '#9B59B6',
-  'K': '#8E44AD'
+// 创建资源代码到中文名称的映射
+const RESOURCE_NAME_MAP = {}
+mineralsData.minerals.forEach(m => {
+  RESOURCE_NAME_MAP[m.code] = m.name
+})
+
+// 获取资源的中文名称
+function getResourceName(ticker) {
+  return RESOURCE_NAME_MAP[ticker] || ticker
 }
 
 export default function PieChart({ data, size = 120, onSegmentClick }) {
@@ -69,7 +72,8 @@ export default function PieChart({ data, size = 120, onSegmentClick }) {
       percentage,
       startAngle,
       endAngle,
-      color: MINERAL_COLORS[item.code] || '#888888'
+      color: MINERAL_COLORS[item.code] || '#888888',
+      name: getResourceName(item.code)
     }
   })
 
@@ -135,7 +139,7 @@ export default function PieChart({ data, size = 120, onSegmentClick }) {
           fill="rgba(255, 255, 255, 0.6)"
           fontSize="8"
         >
-          矿产
+          资源
         </text>
       </svg>
 
@@ -161,6 +165,9 @@ export default function PieChart({ data, size = 120, onSegmentClick }) {
             marginBottom: '4px'
           }}>
             {hoveredData.code}
+          </div>
+          <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '10px', marginBottom: '4px' }}>
+            {hoveredData.name}
           </div>
           <div style={{ color: '#FFFFFF', fontSize: '11px' }}>
             {hoveredData.value.toFixed(2)}
