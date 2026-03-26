@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { parseSystems, getPlanetsBySystem } from '../utils/dataParser'
+import { parseSystems, getPlanetsBySystem, initPlanetsCache, getSystemsPlanetsMap } from '../utils/dataParser'
 import mineralsData from '../data/minerals_list.json'
+
+// 初始化缓存
+initPlanetsCache()
 
 const MINERAL_COLORS = {
   'GAL': '#B8860B', 'BRM': '#CD853F', 'SIO': '#808080', 'H2O': '#4169E1',
@@ -120,73 +123,137 @@ export default function PlanetSearch({ onSearch }) {
 
   const performSearch = () => {
     return new Promise((resolve) => {
-      setTimeout(() => {
-        const systems = parseSystems()
+      // 使用 requestIdleCallback 或 setTimeout 避免阻塞主线程
+      const scheduleWork = (callback) => {
+        if (typeof requestIdleCallback !== 'undefined') {
+          requestIdleCallback(callback, { timeout: 100 })
+        } else {
+          setTimeout(callback, 0)
+        }
+      }
 
+      scheduleWork(() => {
+        const startTime = performance.now()
+        const systems = parseSystems()
+        const systemsMap = getSystemsPlanetsMap()
+
+        // 预编译搜索条件，避免重复计算
+        const hasGravityFilter = filters.gravity.length > 0
+        const hasTempFilter = filters.temperature.length > 0
+        const hasPressureFilter = filters.pressure.length > 0
+        const hasSurfaceFilter = filters.surface.length > 0
+        const hasMineralFilter = filters.minerals.length > 0
+
+        // 快速路径：如果没有筛选条件，直接返回所有系统
+        if (!searchInput && !hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter) {
+          resolve(systems)
+          return
+        }
+
+        // 系统名称索引（用于快速搜索）
+        const searchLower = searchInput?.toLowerCase()
         const matchingSystems = searchInput
-          ? systems.filter(s =>
-              s.Name?.toLowerCase().includes(searchInput.toLowerCase()) ||
-              s.NaturalId?.toLowerCase().includes(searchInput.toLowerCase())
-            )
+          ? systems.filter(s => {
+              const nameMatch = s.Name && s.Name.toLowerCase().includes(searchLower)
+              const idMatch = s.NaturalId && s.NaturalId.toLowerCase().includes(searchLower)
+              return nameMatch || idMatch
+            })
           : systems
 
         const results = []
-        for (let i = 0; i < matchingSystems.length; i++) {
-          const system = matchingSystems[i]
-          const planets = getPlanetsBySystem(system.NaturalId)
+        const batchSize = 100 // 每批处理100个系统
+        let processedCount = 0
 
-          const filteredPlanets = planets.filter(planet => {
-            if (filters.gravity.length > 0) {
-              const gravity = parseFloat(planet.Gravity) || 0
-              if (filters.gravity.includes('high') && gravity < 1.5) return false
-              if (filters.gravity.includes('mid') && (gravity < 0.5 || gravity > 1.5)) return false
-              if (filters.gravity.includes('low') && gravity > 0.5) return false
+        const processBatch = () => {
+          const endIndex = Math.min(processedCount + batchSize, matchingSystems.length)
+
+          for (let i = processedCount; i < endIndex; i++) {
+            const system = matchingSystems[i]
+            const planets = systemsMap.get(system.NaturalId) || []
+
+            // 如果没有筛选条件，直接包含所有系统
+            if (!hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter) {
+              if (planets.length > 0) {
+                results.push({
+                  ...system,
+                  planets: planets
+                })
+              }
+              continue
             }
 
-            if (filters.temperature.length > 0) {
-              const temp = parseFloat(planet.Temperature) || 0
-              if (filters.temperature.includes('high') && temp < 50) return false
-              if (filters.temperature.includes('mid') && (temp < -50 || temp > 50)) return false
-              if (filters.temperature.includes('low') && temp > -50) return false
-            }
+            const filteredPlanets = planets.filter(planet => {
+              // 重力筛选
+              if (hasGravityFilter) {
+                const gravity = parseFloat(planet.Gravity) || 0
+                let gravityMatch = false
+                if (filters.gravity.includes('high') && gravity >= 1.5) gravityMatch = true
+                if (filters.gravity.includes('mid') && gravity >= 0.5 && gravity <= 1.5) gravityMatch = true
+                if (filters.gravity.includes('low') && gravity <= 0.5) gravityMatch = true
+                if (!gravityMatch) return false
+              }
 
-            if (filters.pressure.length > 0) {
-              const pressure = parseFloat(planet.Pressure) || 0
-              if (filters.pressure.includes('high') && pressure < 2) return false
-              if (filters.pressure.includes('mid') && (pressure < 0.1 || pressure > 2)) return false
-              if (filters.pressure.includes('low') && pressure > 0.1) return false
-            }
+              // 温度筛选
+              if (hasTempFilter) {
+                const temp = parseFloat(planet.Temperature) || 0
+                let tempMatch = false
+                if (filters.temperature.includes('high') && temp >= 50) tempMatch = true
+                if (filters.temperature.includes('mid') && temp >= -50 && temp <= 50) tempMatch = true
+                if (filters.temperature.includes('low') && temp <= -50) tempMatch = true
+                if (!tempMatch) return false
+              }
 
-            if (filters.surface.length > 0) {
-              const isRocky = planet.Surface === 'True'
-              if (filters.surface.includes('rocky') && !isRocky) return false
-              if (filters.surface.includes('gaseous') && isRocky) return false
-            }
+              // 压力筛选
+              if (hasPressureFilter) {
+                const pressure = parseFloat(planet.Pressure) || 0
+                let pressureMatch = false
+                if (filters.pressure.includes('high') && pressure >= 2) pressureMatch = true
+                if (filters.pressure.includes('mid') && pressure >= 0.1 && pressure <= 2) pressureMatch = true
+                if (filters.pressure.includes('low') && pressure <= 0.1) pressureMatch = true
+                if (!pressureMatch) return false
+              }
 
-            if (filters.minerals.length > 0) {
-              const hasMatchingMineral = planet.Resources?.some(r =>
-                filters.minerals.includes(r.Ticker)
-              )
-              if (!hasMatchingMineral) return false
-            }
+              // 材质筛选
+              if (hasSurfaceFilter) {
+                const isRocky = planet.Surface === 'True'
+                let surfaceMatch = false
+                if (filters.surface.includes('rocky') && isRocky) surfaceMatch = true
+                if (filters.surface.includes('gaseous') && !isRocky) surfaceMatch = true
+                if (!surfaceMatch) return false
+              }
 
-            return true
-          })
+              // 矿物筛选 - 必须包含所有选择的矿物
+              if (hasMineralFilter) {
+                const planetMinerals = new Set(planet.Resources?.map(r => r.Ticker) || [])
+                const hasAllMinerals = filters.minerals.every(m => planetMinerals.has(m))
+                if (!hasAllMinerals) return false
+              }
 
-          if (filteredPlanets.length > 0 || !searchInput) {
-            results.push({
-              ...system,
-              planets: filteredPlanets
+              return true
             })
+
+            if (filteredPlanets.length > 0) {
+              results.push({
+                ...system,
+                planets: filteredPlanets
+              })
+            }
           }
 
-          if (i % 50 === 0) {
-            results.push({ type: 'progress' })
+          processedCount = endIndex
+
+          if (processedCount < matchingSystems.length) {
+            // 继续处理下一批
+            scheduleWork(processBatch)
+          } else {
+            const endTime = performance.now()
+            console.log(`[Search] 搜索完成: ${results.length} 个结果, 耗时 ${(endTime - startTime).toFixed(2)}ms`)
+            resolve(results)
           }
         }
 
-        resolve(results.filter(r => r.type !== 'progress'))
-      }, 10)
+        processBatch()
+      })
     })
   }
 
@@ -227,6 +294,21 @@ export default function PlanetSearch({ onSearch }) {
       minerals: []
     })
     setSuggestions([])
+    // 通知父组件清除搜索结果
+    if (onSearch) {
+      onSearch({
+        query: '',
+        filters: {
+          gravity: [],
+          temperature: [],
+          pressure: [],
+          surface: [],
+          minerals: []
+        },
+        results: [],
+        isAdvanced: showAdvanced
+      })
+    }
   }
 
   const toggleFilter = (category, value) => {
@@ -246,9 +328,9 @@ export default function PlanetSearch({ onSearch }) {
   return (
     <div style={{
       width: '100%',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '20px',
+      maxWidth: '800px',
+      margin: '0 auto 10px',
+      padding: '6px 12px',
       background: 'rgba(10, 20, 40, 0.95)',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
@@ -257,11 +339,11 @@ export default function PlanetSearch({ onSearch }) {
     }}>
       <div style={{
         display: 'flex',
-        gap: '12px',
+        gap: '10px',
         flexWrap: 'wrap',
-        alignItems: 'flex-start'
+        alignItems: 'center'
       }}>
-        <div style={{ flex: '1 1 70%', minWidth: '280px', position: 'relative' }}>
+        <div style={{ width: '160px', position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
@@ -270,12 +352,12 @@ export default function PlanetSearch({ onSearch }) {
             onKeyDown={handleKeyDown}
             onFocus={() => setShowHistory(true)}
             onBlur={() => setTimeout(() => setShowHistory(false), 200)}
-            placeholder="请输入星球名称或扇区名称进行搜索"
+            placeholder="搜索星球/扇区"
             style={{
               width: '100%',
-              padding: '12px 16px',
-              fontSize: '14px',
-              border: `2px solid ${inputError ? '#FF4500' : 'rgba(0, 255, 255, 0.3)'}`,
+              padding: '8px 10px',
+              fontSize: '12px',
+              border: `1px solid ${inputError ? '#FF4500' : 'rgba(0, 255, 255, 0.3)'}`,
               borderRadius: '6px',
               background: 'rgba(0, 0, 0, 0.3)',
               color: '#FFFFFF',
@@ -384,29 +466,29 @@ export default function PlanetSearch({ onSearch }) {
           onClick={handleSearch}
           disabled={isLoading || !!inputError}
           style={{
-            padding: '12px 24px',
-            fontSize: '14px',
+            padding: '8px 14px',
+            fontSize: '12px',
             fontWeight: 'bold',
             background: isLoading || !!inputError ? 'rgba(0, 255, 255, 0.3)' : '#00FFFF',
             color: isLoading || !!inputError ? 'rgba(255,255,255,0.5)' : '#0a0a0f',
             border: 'none',
             borderRadius: '6px',
             cursor: isLoading || !!inputError ? 'not-allowed' : 'pointer',
-            minWidth: '120px',
-            minHeight: '44px',
+            minWidth: '60px',
+            minHeight: '32px',
             transition: 'all 0.2s',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px'
+            gap: '6px'
           }}
         >
           {isLoading ? (
             <>
               <span style={{
                 display: 'inline-block',
-                width: '16px',
-                height: '16px',
+                width: '12px',
+                height: '12px',
                 border: '2px solid transparent',
                 borderTop: '2px solid currentColor',
                 borderRadius: '50%',
@@ -420,40 +502,37 @@ export default function PlanetSearch({ onSearch }) {
         <button
           onClick={handleReset}
           style={{
-            padding: '12px 24px',
-            fontSize: '14px',
+            padding: '8px 14px',
+            fontSize: '12px',
             fontWeight: 'bold',
             background: 'transparent',
             color: '#00FFFF',
-            border: '2px solid #00FFFF',
+            border: '1px solid #00FFFF',
             borderRadius: '6px',
             cursor: 'pointer',
-            minWidth: '100px',
-            minHeight: '44px',
+            minWidth: '60px',
+            minHeight: '32px',
             transition: 'all 0.2s'
           }}
         >
           重置
         </button>
-      </div>
 
-      <div style={{
-        marginTop: '16px',
-        borderTop: '1px solid rgba(0, 255, 255, 0.2)',
-        paddingTop: '12px'
-      }}>
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
           style={{
             background: 'transparent',
-            border: 'none',
-            color: '#88ccff',
+            border: showAdvanced ? '1px solid #00FFFF' : '1px solid rgba(0, 255, 255, 0.3)',
+            color: showAdvanced ? '#00FFFF' : '#88ccff',
             cursor: 'pointer',
-            fontSize: '14px',
+            fontSize: '12px',
+            padding: '8px 12px',
+            borderRadius: '6px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '8px 0'
+            gap: '6px',
+            minHeight: '32px',
+            transition: 'all 0.2s'
           }}
         >
           高级筛选
@@ -465,202 +544,195 @@ export default function PlanetSearch({ onSearch }) {
             ▼
           </span>
         </button>
+      </div>
 
-        <div style={{
-          maxHeight: showAdvanced ? '500px' : '0',
-          opacity: showAdvanced ? 1 : 0,
-          overflow: 'hidden',
-          transition: 'max-height 0.3s ease-in-out, opacity 0.3s ease-in-out'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '16px',
-            paddingTop: '16px'
-          }}>
-            <FilterGroup title="重力条件" icon="⚖️">
-              {['高', '中', '低'].map(level => (
-                <FilterCheckbox
-                  key={level}
-                  label={level}
-                  checked={filters.gravity.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  onChange={() => toggleFilter('gravity', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
-                />
-              ))}
-            </FilterGroup>
+      <div style={{
+        display: showAdvanced ? 'grid' : 'none',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+        gap: '10px',
+        marginTop: '10px'
+      }}>
+        <FilterGroup title="重力" icon="⚖️">
+          {['高', '中', '低'].map(level => (
+            <FilterCheckbox
+              key={level}
+              label={level}
+              checked={filters.gravity.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              onChange={() => toggleFilter('gravity', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
+            />
+          ))}
+        </FilterGroup>
 
-            <FilterGroup title="温度条件" icon="🌡️">
-              {['高', '中', '低'].map(level => (
-                <FilterCheckbox
-                  key={level}
-                  label={level}
-                  checked={filters.temperature.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  onChange={() => toggleFilter('temperature', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
-                />
-              ))}
-            </FilterGroup>
+        <FilterGroup title="温度" icon="🌡️">
+          {['高', '中', '低'].map(level => (
+            <FilterCheckbox
+              key={level}
+              label={level}
+              checked={filters.temperature.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              onChange={() => toggleFilter('temperature', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
+            />
+          ))}
+        </FilterGroup>
 
-            <FilterGroup title="压力条件" icon="📊">
-              {['高', '中', '低'].map(level => (
-                <FilterCheckbox
-                  key={level}
-                  label={level}
-                  checked={filters.pressure.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  onChange={() => toggleFilter('pressure', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
-                  color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
-                />
-              ))}
-            </FilterGroup>
+        <FilterGroup title="压力" icon="📊">
+          {['高', '中', '低'].map(level => (
+            <FilterCheckbox
+              key={level}
+              label={level}
+              checked={filters.pressure.includes(level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              onChange={() => toggleFilter('pressure', level === '高' ? 'high' : level === '中' ? 'mid' : 'low')}
+              color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
+            />
+          ))}
+        </FilterGroup>
 
-            <FilterGroup title="星球材质" icon="🪨">
-              {[
-                { value: 'rocky', label: '岩质', color: '#FFA500' },
-                { value: 'gaseous', label: '气态', color: '#87CEEB' }
-              ].map(item => (
-                <FilterCheckbox
-                  key={item.value}
-                  label={item.label}
-                  checked={filters.surface.includes(item.value)}
-                  onChange={() => toggleFilter('surface', item.value)}
-                  color={item.color}
-                />
-              ))}
-            </FilterGroup>
+        <FilterGroup title="材质" icon="🪨">
+          {[
+            { value: 'rocky', label: '岩质', color: '#FFA500' },
+            { value: 'gaseous', label: '气态', color: '#87CEEB' }
+          ].map(item => (
+            <FilterCheckbox
+              key={item.value}
+              label={item.label}
+              checked={filters.surface.includes(item.value)}
+              onChange={() => toggleFilter('surface', item.value)}
+              color={item.color}
+            />
+          ))}
+        </FilterGroup>
 
-            <FilterGroup title="矿产资源" icon="💎">
-              <div style={{ position: 'relative' }} ref={mineralDropdownRef}>
-                <input
-                  type="text"
-                  value={mineralSearch}
-                  onChange={(e) => {
-                    setMineralSearch(e.target.value)
-                    setShowMineralDropdown(true)
-                  }}
-                  onFocus={(e) => {
-                    setShowMineralDropdown(true)
-                  }}
-                  placeholder="输入搜索矿产..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    background: 'rgba(0, 0, 0, 0.3)',
-                    border: '1px solid rgba(0, 255, 255, 0.3)',
-                    borderRadius: '6px',
-                    color: '#FFFFFF',
-                    fontSize: '12px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+        <FilterGroup title="矿产" icon="💎">
+          <div style={{ position: 'relative' }} ref={mineralDropdownRef}>
+            <input
+              type="text"
+              value={mineralSearch}
+              onChange={(e) => {
+                setMineralSearch(e.target.value)
+                setShowMineralDropdown(true)
+              }}
+              onFocus={(e) => {
+                setShowMineralDropdown(true)
+              }}
+              placeholder="输入搜索矿产..."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(0, 255, 255, 0.3)',
+                borderRadius: '6px',
+                color: '#FFFFFF',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
 
-                {showMineralDropdown && filteredMinerals.length > 0 && (
+            {showMineralDropdown && filteredMinerals.length > 0 && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 'auto',
+                  left: 'auto',
+                  zIndex: 10000,
+                  background: 'rgba(10, 20, 40, 0.98)',
+                  border: '1px solid rgba(0, 255, 255, 0.3)',
+                  borderRadius: '6px',
+                  maxHeight: '250px',
+                  overflowY: 'auto',
+                  width: '300px',
+                  maxWidth: '90vw'
+                }}
+                id="mineral-dropdown"
+              >
+                {filteredMinerals.map(mineral => (
                   <div
-                    style={{
-                      position: 'fixed',
-                      top: 'auto',
-                      left: 'auto',
-                      zIndex: 10000,
-                      background: 'rgba(10, 20, 40, 0.98)',
-                      border: '1px solid rgba(0, 255, 255, 0.3)',
-                      borderRadius: '6px',
-                      maxHeight: '250px',
-                      overflowY: 'auto',
-                      width: '300px',
-                      maxWidth: '90vw'
+                    key={mineral.code}
+                    onClick={() => {
+                      toggleFilter('minerals', mineral.code)
+                      setMineralSearch('')
+                      setShowMineralDropdown(false)
                     }}
-                    id="mineral-dropdown"
-                  >
-                    {filteredMinerals.map(mineral => (
-                      <div
-                        key={mineral.code}
-                        onClick={() => {
-                          toggleFilter('minerals', mineral.code)
-                          setMineralSearch('')
-                          setShowMineralDropdown(false)
-                        }}
-                        style={{
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          borderBottom: '1px solid rgba(0, 255, 255, 0.1)',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0, 255, 255, 0.1)'}
-                        onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div>
-                          <span style={{ color: MINERAL_COLORS[mineral.code] || '#FFFFFF', fontWeight: 'bold', marginRight: '8px' }}>
-                            {mineral.code}
-                          </span>
-                          <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '11px' }}>
-                            {mineral.name}
-                          </span>
-                        </div>
-                        {filters.minerals.includes(mineral.code) && (
-                          <span style={{ color: '#00FFFF', fontSize: '10px' }}>已选 ✓</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {showMineralDropdown && mineralSearch && filteredMinerals.length === 0 && (
-                  <div
                     style={{
-                      position: 'fixed',
-                      top: 'auto',
-                      left: 'auto',
-                      zIndex: 10000,
-                      background: 'rgba(10, 20, 40, 0.98)',
-                      border: '1px solid rgba(0, 255, 255, 0.3)',
-                      borderRadius: '6px',
-                      padding: '12px',
-                      textAlign: 'center',
-                      color: 'rgba(255, 255, 255, 0.5)',
-                      fontSize: '12px',
-                      width: '300px',
-                      maxWidth: '90vw'
+                      padding: '10px 12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: '1px solid rgba(0, 255, 255, 0.1)',
+                      transition: 'background 0.2s'
                     }}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0, 255, 255, 0.1)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    未找到匹配的矿产
-                  </div>
-                )}
-              </div>
-              {filters.minerals.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
-                  {filters.minerals.map(code => {
-                    const mineral = mineralList.find(m => m.code === code)
-                    return (
-                      <span
-                        key={code}
-                        onClick={() => toggleFilter('minerals', code)}
-                        style={{
-                          padding: '2px 8px',
-                          background: `${MINERAL_COLORS[code] || '#888'}33`,
-                          border: `1px solid ${MINERAL_COLORS[code] || '#888'}`,
-                          borderRadius: '10px',
-                          color: MINERAL_COLORS[code] || '#888',
-                          fontSize: '10px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        {code}
-                        <span style={{ fontSize: '8px' }}>×</span>
+                    <div>
+                      <span style={{ color: MINERAL_COLORS[mineral.code] || '#FFFFFF', fontWeight: 'bold', marginRight: '8px' }}>
+                        {mineral.code}
                       </span>
-                    )
-                  })}
-                </div>
-              )}
-            </FilterGroup>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '11px' }}>
+                        {mineral.name}
+                      </span>
+                    </div>
+                    {filters.minerals.includes(mineral.code) && (
+                      <span style={{ color: '#00FFFF', fontSize: '10px' }}>已选 ✓</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showMineralDropdown && mineralSearch && filteredMinerals.length === 0 && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 'auto',
+                  left: 'auto',
+                  zIndex: 10000,
+                  background: 'rgba(10, 20, 40, 0.98)',
+                  border: '1px solid rgba(0, 255, 255, 0.3)',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  textAlign: 'center',
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  fontSize: '12px',
+                  width: '300px',
+                  maxWidth: '90vw'
+                }}
+              >
+                未找到匹配的矿产
+              </div>
+            )}
           </div>
-        </div>
+          {filters.minerals.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+              {filters.minerals.map(code => {
+                const mineral = mineralList.find(m => m.code === code)
+                return (
+                  <span
+                    key={code}
+                    onClick={() => toggleFilter('minerals', code)}
+                    style={{
+                      padding: '2px 8px',
+                      background: `${MINERAL_COLORS[code] || '#888'}33`,
+                      border: `1px solid ${MINERAL_COLORS[code] || '#888'}`,
+                      borderRadius: '10px',
+                      color: MINERAL_COLORS[code] || '#888',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {code}
+                    <span style={{ fontSize: '8px' }}>×</span>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </FilterGroup>
       </div>
 
       <style>{`
@@ -677,25 +749,25 @@ function FilterGroup({ title, icon, children }) {
   return (
     <div style={{
       background: 'rgba(0, 0, 0, 0.2)',
-      padding: '12px',
+      padding: '8px 10px',
       borderRadius: '6px',
       border: '1px solid rgba(0, 255, 255, 0.1)'
     }}>
       <div style={{
         color: '#88ccff',
-        fontSize: '13px',
+        fontSize: '11px',
         fontWeight: 'bold',
-        marginBottom: '12px',
+        marginBottom: '6px',
         display: 'flex',
         alignItems: 'center',
-        gap: '6px'
+        gap: '4px'
       }}>
         <span>{icon}</span>
         {title}
       </div>
       <div style={{
         display: 'flex',
-        gap: '12px',
+        gap: '8px',
         flexWrap: 'wrap'
       }}>
         {children}
@@ -709,17 +781,17 @@ function FilterCheckbox({ label, checked, onChange, color }) {
     <label style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '4px',
       cursor: 'pointer',
       userSelect: 'none'
     }}>
       <div
         onClick={onChange}
         style={{
-          width: '18px',
-          height: '18px',
-          border: `2px solid ${checked ? color : 'rgba(0, 255, 255, 0.3)'}`,
-          borderRadius: '4px',
+          width: '14px',
+          height: '14px',
+          border: `1px solid ${checked ? color : 'rgba(0, 255, 255, 0.3)'}`,
+          borderRadius: '3px',
           background: checked ? color : 'transparent',
           display: 'flex',
           alignItems: 'center',
@@ -729,12 +801,12 @@ function FilterCheckbox({ label, checked, onChange, color }) {
         }}
       >
         {checked && (
-          <span style={{ color: '#0a0a0f', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
+          <span style={{ color: '#0a0a0f', fontSize: '10px', fontWeight: 'bold' }}>✓</span>
         )}
       </div>
       <span style={{
         color: checked ? '#FFFFFF' : 'rgba(255, 255, 255, 0.7)',
-        fontSize: '13px',
+        fontSize: '11px',
         transition: 'color 0.2s'
       }}>
         {label}

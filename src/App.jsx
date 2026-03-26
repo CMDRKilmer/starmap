@@ -14,7 +14,7 @@ function getEnvColor(value, normalValue, lowThreshold, highThreshold) {
 
 const SCALE = 1
 
-function Star({ system, onClick, isSelected, onHover }) {
+function Star({ system, onClick, isSelected, onHover, isSearched }) {
   const color = getSystemFactionColor(system.SystemId)
   const [hovered, setHovered] = useState(false)
 
@@ -36,16 +36,16 @@ function Star({ system, onClick, isSelected, onHover }) {
         document.body.style.cursor = 'auto'
       }}
     >
-      <sphereGeometry args={[hovered ? 10.4 : 7.8, 16, 16]} />
+      <sphereGeometry args={[isSearched ? 12 : (hovered ? 10.4 : 7.8), 16, 16]} />
       <meshBasicMaterial
-        color={color}
+        color={isSearched ? '#FF00FF' : color}
         transparent
-        opacity={isSelected ? 1 : 0.9}
+        opacity={isSelected || isSearched ? 1 : 0.9}
       />
       <pointLight
-        color={color}
-        intensity={isSelected ? 2 : 0.5}
-        distance={20}
+        color={isSearched ? '#FF00FF' : color}
+        intensity={isSearched ? 3 : (isSelected ? 2 : 0.5)}
+        distance={isSearched ? 30 : 20}
       />
     </mesh>
   )
@@ -132,7 +132,7 @@ function SectorBounds({ sectors }) {
   )
 }
 
-function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem }) {
+function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem, searchedSystems }) {
   const systems = useMemo(() => parseSystems(), [])
   const links = useMemo(() => parseLinks(), [])
   const sectors = useMemo(() => groupBySector(systems), [systems])
@@ -152,6 +152,7 @@ function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem }) {
           system={system}
           onClick={onSystemSelect}
           isSelected={selectedSystem?.NaturalId === system.NaturalId}
+          isSearched={searchedSystems?.has(system.NaturalId) || false}
           onHover={hoveredSystem ? (s) => hoveredSystem(s) : () => {}}
         />
       ))}
@@ -164,6 +165,7 @@ export default function App() {
   const [hoveredSystem, setHoveredSystem] = useState(null)
   const [searchResults, setSearchResults] = useState(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [searchedSystems, setSearchedSystems] = useState(new Set())
   const controlsRef = useRef()
 
   const handleSystemSelect = (system) => {
@@ -200,6 +202,7 @@ export default function App() {
           onSystemSelect={handleSystemSelect}
           selectedSystem={selectedSystem}
           hoveredSystem={handleHover}
+          searchedSystems={searchedSystems}
         />
         <OrbitControls
           ref={controlsRef}
@@ -228,7 +231,7 @@ export default function App() {
       
       <div style={{
         position: 'absolute',
-        top: 80,
+        top: 25,
         left: 20,
         right: 20,
         zIndex: 100
@@ -237,6 +240,16 @@ export default function App() {
           onSearch={(result) => {
             setSearchResults(result)
             setIsSearching(false)
+            // 更新搜索到的系统集合
+            const systemIds = new Set()
+            if (result?.results) {
+              result.results.forEach(item => {
+                if (item.NaturalId) {
+                  systemIds.add(item.NaturalId)
+                }
+              })
+            }
+            setSearchedSystems(systemIds)
           }}
           isSearching={isSearching}
         />
@@ -428,7 +441,7 @@ export default function App() {
         系统数量: {parseSystems().length} | 连接数: {parseLinks().length}
       </div>
 
-      {/* 派系图例 */}
+      {/* 图例 */}
       <div style={{
         position: 'absolute',
         bottom: 20,
@@ -441,19 +454,34 @@ export default function App() {
         fontFamily: 'Roboto Mono, monospace',
         color: '#00ffff',
         display: 'flex',
-        gap: '20px',
+        gap: '24px',
         alignItems: 'center'
       }}>
-        <div style={{ fontSize: '11px', fontWeight: 'bold', marginRight: '10px' }}>派系:</div>
-        {Object.entries(FACTION_COLORS).map(([code, color]) => (
-          <div key={code} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: color }}></div>
-            <span style={{ fontSize: '10px' }}>{code}</span>
+        {/* 派系图例 */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', opacity: 0.7 }}>派系</span>
+          {Object.entries(FACTION_COLORS).map(([code, color]) => (
+            <div key={code} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: color, boxShadow: `0 0 4px ${color}` }}></div>
+              <span style={{ fontSize: '9px' }}>{code}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#FFFFFF' }}></div>
+            <span style={{ fontSize: '9px' }}>无</span>
           </div>
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FFFFFF' }}></div>
-          <span style={{ fontSize: '10px' }}>无</span>
+        </div>
+
+        {/* 分隔线 */}
+        <div style={{ width: '1px', height: '20px', background: 'rgba(0, 255, 255, 0.3)' }}></div>
+
+        {/* 搜索结果图例 */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span style={{ fontSize: '10px', opacity: 0.7 }}>搜索结果</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FF00FF', boxShadow: '0 0 6px #FF00FF' }}></div>
+            <span style={{ fontSize: '9px', color: '#FF00FF' }}>匹配</span>
+          </div>
         </div>
       </div>
     </div>

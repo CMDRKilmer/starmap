@@ -210,8 +210,14 @@ export async function fetchFIOPlanetsData() {
 }
 */
 
-// 获取指定系统的所有星球（包含设施信息）
-export function getPlanetsBySystem(systemNaturalId) {
+// 全局缓存
+let planetsCache = null
+let systemsPlanetsMap = null
+
+// 初始化缓存（在应用启动时调用）
+export function initPlanetsCache() {
+  if (planetsCache) return planetsCache
+  
   const allPlanets = parseSystemPlanets()
   const allPlanetDetails = parsePlanetDetail()
   const allPlanetResources = parsePlanetResources()
@@ -239,31 +245,69 @@ export function getPlanetsBySystem(systemNaturalId) {
     }
   })
   
-  // 系统NaturalId是星球ID的前缀（如 VH-331 匹配 VH-331a, VH-331b 等）
-  return allPlanets
-    .filter(planet => planet.NaturalId && planet.NaturalId.startsWith(systemNaturalId))
-    .map(planet => {
-      const detail = planetDetailMap[planet.NaturalId]
-      const resources = planetResourcesMap[planet.NaturalId] || []
-      
-      return {
-        ...planet,
-        // 星球设施
-        HasLocalMarket: detail ? detail.HasLocalMarket === 'True' : false,
-        HasChamberOfCommerce: detail ? detail.HasChamberOfCommerce === 'True' : false,
-        HasWarehouse: detail ? detail.HasWarehouse === 'True' : false,
-        HasAdministrationCenter: detail ? detail.HasAdministrationCenter === 'True' : false,
-        HasShipyard: detail ? detail.HasShipyard === 'True' : false,
-        // 环境数据
-        Gravity: detail ? detail.Gravity : null,
-        Temperature: detail ? detail.Temperature : null,
-        Pressure: detail ? detail.Pressure : null,
-        Fertility: detail ? detail.Fertility : null,
-        Surface: detail ? detail.Surface : null,
-        // 资源数据
-        Resources: resources
+  // 构建完整的星球数据
+  planetsCache = allPlanets.map(planet => {
+    const detail = planetDetailMap[planet.NaturalId]
+    const resources = planetResourcesMap[planet.NaturalId] || []
+    
+    return {
+      ...planet,
+      HasLocalMarket: detail ? detail.HasLocalMarket === 'True' : false,
+      HasChamberOfCommerce: detail ? detail.HasChamberOfCommerce === 'True' : false,
+      HasWarehouse: detail ? detail.HasWarehouse === 'True' : false,
+      HasAdministrationCenter: detail ? detail.HasAdministrationCenter === 'True' : false,
+      HasShipyard: detail ? detail.HasShipyard === 'True' : false,
+      Gravity: detail ? detail.Gravity : null,
+      Temperature: detail ? detail.Temperature : null,
+      Pressure: detail ? detail.Pressure : null,
+      Fertility: detail ? detail.Fertility : null,
+      Surface: detail ? detail.Surface : null,
+      Resources: resources
+    }
+  })
+  
+  // 构建系统-星球映射
+  systemsPlanetsMap = new Map()
+  planetsCache.forEach(planet => {
+    if (planet.NaturalId) {
+      // 提取系统ID（如 VH-331a -> VH-331）
+      const systemId = planet.NaturalId.replace(/[a-z]$/, '')
+      if (!systemsPlanetsMap.has(systemId)) {
+        systemsPlanetsMap.set(systemId, [])
       }
-    })
+      systemsPlanetsMap.get(systemId).push(planet)
+    }
+  })
+  
+  console.log(`[Cache] 已缓存 ${planetsCache.length} 个星球, ${systemsPlanetsMap.size} 个系统`)
+  return planetsCache
+}
+
+// 获取指定系统的所有星球（使用缓存）
+export function getPlanetsBySystem(systemNaturalId) {
+  // 确保缓存已初始化
+  if (!planetsCache) {
+    initPlanetsCache()
+  }
+  
+  // 直接从缓存获取
+  return systemsPlanetsMap.get(systemNaturalId) || []
+}
+
+// 获取所有缓存的星球（用于搜索）
+export function getAllCachedPlanets() {
+  if (!planetsCache) {
+    initPlanetsCache()
+  }
+  return planetsCache
+}
+
+// 获取系统-星球映射（用于搜索）
+export function getSystemsPlanetsMap() {
+  if (!systemsPlanetsMap) {
+    initPlanetsCache()
+  }
+  return systemsPlanetsMap
 }
 
 // 获取系统的空间站（CX）信息 - 从订单数据中提取
