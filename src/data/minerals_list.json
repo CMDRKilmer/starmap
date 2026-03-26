@@ -7,20 +7,20 @@
     { "code": "BER", "name": "绿柱石晶体", "type": "MINERAL" },
     { "code": "BOR", "name": "硼晶体", "type": "MINERAL" },
     { "code": "BRM", "name": "生物反应性矿物质", "type": "MINERAL" },
-    { "code": "BTS", "name": "细菌钨溶液", "type": "ORGANIC" },
+    { "code": "BTS", "name": "细菌钨溶液", "type": "LIQUID" },
     { "code": "CLI", "name": "钙质岩", "type": "MINERAL" },
     { "code": "CUO", "name": "铜矿石", "type": "MINERAL" },
     { "code": "F", "name": "氟", "type": "GASEOUS" },
     { "code": "FEO", "name": "铁矿石", "type": "MINERAL" },
     { "code": "GAL", "name": "寰亘石", "type": "MINERAL" },
     { "code": "H", "name": "氢", "type": "GASEOUS" },
-    { "code": "H2O", "name": "水", "type": "ORGANIC" },
+    { "code": "H2O", "name": "水", "type": "LIQUID" },
     { "code": "HAL", "name": "岩盐晶体", "type": "MINERAL" },
     { "code": "HE", "name": "氦", "type": "GASEOUS" },
     { "code": "HE3", "name": "氦-3同位素", "type": "GASEOUS" },
-    { "code": "HEX", "name": "天芥菜提取物", "type": "ORGANIC" },
+    { "code": "HEX", "name": "天芥菜提取物", "type": "LIQUID" },
     { "code": "KR", "name": "氪", "type": "GASEOUS" },
-    { "code": "LES", "name": "液态锿", "type": "RAREEARTH" },
+    { "code": "LES", "name": "液态锿", "type": "LIQUID" },
     { "code": "LIO", "name": "锂矿石", "type": "MINERAL" },
     { "code": "LST", "name": "石灰石", "type": "MINERAL" },
     { "code": "MAG", "name": "磁铁矿", "type": "MINERAL" },
@@ -41,7 +41,7 @@
   "typeSummary": {
     "MINERAL": 24,
     "GASEOUS": 10,
-    "ORGANIC": 3,
-    "RAREEARTH": 1
+    "LIQUID": 4,
+    "RAREEARTH": 0
   }
 }
