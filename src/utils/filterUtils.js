@@ -28,7 +28,7 @@ export function matchSurfaceFilter(surface, filter) {
 export function matchMineralFilter(resources, filter) {
   if (!filter || filter.length === 0) return true
   if (!resources || resources.length === 0) return false
-  return filter.some(mineral =>
+  return filter.every(mineral =>
     resources.some(r => r.Ticker === mineral)
   )
 }

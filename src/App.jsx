@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars, Text, Line } from '@react-three/drei'
-import { useMemo, useState, useRef, memo, useCallback } from 'react'
+import { useMemo, useState, useRef, memo, useCallback, useEffect } from 'react'
 import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem } from './utils/dataParser'
 import { groupBySector, getSectorColor } from './utils/sectorCalculator'
 import { FACTION_COLORS, UI_THEME } from './utils/colors'
@@ -36,6 +36,12 @@ const Star = memo(function Star({ system, onClick, isSelected, onHover, isSearch
 
   const handlePointerOut = useCallback(() => {
     document.body.style.cursor = 'auto'
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = 'auto'
+    }
   }, [])
 
   return (

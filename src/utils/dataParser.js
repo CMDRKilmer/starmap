@@ -118,9 +118,13 @@ export function parsePlanetResources() {
 
 // 全局缓存
 let systemsPlanetsMap = null
+let initStarted = false
 
 // 初始化缓存（在应用启动时调用）
 export function initPlanetsCache() {
+  if (initStarted) return
+  initStarted = true
+
   if (planetsCache) return planetsCache
   
   const allPlanets = parseSystemPlanets()
