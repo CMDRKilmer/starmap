@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { UI_THEME } from '../utils/colors'
 
 export function FilterGroup({ title, icon, children }) {
@@ -29,6 +30,12 @@ export function FilterGroup({ title, icon, children }) {
       </div>
     </div>
   )
+}
+
+FilterGroup.propTypes = {
+  title: PropTypes.string.isRequired,
+  icon: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired
 }
 
 export function FilterCheckbox({ label, checked, onChange, color }) {
@@ -68,4 +75,11 @@ export function FilterCheckbox({ label, checked, onChange, color }) {
       </span>
     </label>
   )
+}
+
+FilterCheckbox.propTypes = {
+  label: PropTypes.string.isRequired,
+  checked: PropTypes.bool.isRequired,
+  onChange: PropTypes.func.isRequired,
+  color: PropTypes.string.isRequired
 }
