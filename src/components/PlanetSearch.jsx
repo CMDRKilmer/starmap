@@ -541,7 +541,7 @@ export default function PlanetSearch({ onSearch }) {
           ))}
         </FilterGroup>
 
-        <FilterGroup title="矿产" icon="💎">
+        <FilterGroup title="资源" icon="💎">
           <div style={{ position: 'relative' }} ref={mineralDropdownRef}>
             <input
               type="text"
@@ -553,7 +553,7 @@ export default function PlanetSearch({ onSearch }) {
               onFocus={(e) => {
                 setShowMineralDropdown(true)
               }}
-              placeholder="输入搜索矿产..."
+              placeholder="输入搜索资源..."
               style={{
                 width: '100%',
                 padding: '8px 12px',
