@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars, Text, Line } from '@react-three/drei'
 import { useMemo, useState, useRef } from 'react'
-import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem } from './utils/dataParser'
+import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem, FACTION_COLORS } from './utils/dataParser'
 import { groupBySector, getSectorColor } from './utils/sectorCalculator'
 
 const SCALE = 1
@@ -387,22 +387,12 @@ export default function App() {
         alignItems: 'center'
       }}>
         <div style={{ fontSize: '11px', fontWeight: 'bold', marginRight: '10px' }}>派系:</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#4CAF50' }}></div>
-          <span style={{ fontSize: '10px' }}>IC</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FFEB3B' }}></div>
-          <span style={{ fontSize: '10px' }}>CI</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#2196F3' }}></div>
-          <span style={{ fontSize: '10px' }}>NC</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#F44336' }}></div>
-          <span style={{ fontSize: '10px' }}>AI</span>
-        </div>
+        {Object.entries(FACTION_COLORS).map(([code, color]) => (
+          <div key={code} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: color }}></div>
+            <span style={{ fontSize: '10px' }}>{code}</span>
+          </div>
+        ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FFFFFF' }}></div>
           <span style={{ fontSize: '10px' }}>无</span>
