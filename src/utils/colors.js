@@ -50,6 +50,11 @@ export const UI_THEME = {
   white: '#ffffff',
   searchHighlight: '#FF00FF',
   warning: '#FF4500',
+  error: '#FF4500',
+  mineralDefault: '#888888',
+  rockColor: '#FFA500',
+  gasColor: '#87CEEB',
+  gold: '#FFD700',
 };
 
 export function getEnvColor(value, normalValue, lowThreshold, highThreshold) {
