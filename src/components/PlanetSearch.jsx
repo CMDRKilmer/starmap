@@ -1,26 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { parseSystems, getPlanetsBySystem, initPlanetsCache, getSystemsPlanetsMap } from '../utils/dataParser'
+import { MINERAL_COLORS } from '../utils/colors'
+import { applyPlanetFilters } from '../utils/filterUtils'
 import mineralsData from '../data/minerals_list.json'
-
-// 初始化缓存
-initPlanetsCache()
-
-const MINERAL_COLORS = {
-  'GAL': '#B8860B', 'BRM': '#CD853F', 'SIO': '#808080', 'H2O': '#4169E1',
-  'TAI': '#C0C0C0', 'HE': '#FFB6C1', 'FEO': '#8B4513', 'MAG': '#90EE90',
-  'CU': '#B87333', 'AU': '#FFD700', 'AG': '#C0C0C0', 'PT': '#E5E4E2',
-  'NI': '#727472', 'CO': '#0047AB', 'WI': '#2F4F4F', 'MN': '#9B59B6',
-  'CR': '#A29BFE', 'HG': '#E74C3C', 'PB': '#34495E', 'UR': '#27AE60',
-  'TH': '#16A085', 'LI': '#F1C40F', 'SI': '#95A5A6', 'NA': '#9B59B6',
-  'K': '#8E44AD', 'ALO': '#CD7F32', 'AMM': '#9ACD32', 'AR': '#DA70D6',
-  'AUO': '#FFD700', 'BER': '#98FB98', 'BOR': '#F0E68C', 'BTS': '#BC8F8F',
-  'CLI': '#7FFF00', 'CUO': '#B87333', 'F': '#ADFF2F', 'H': '#87CEEB',
-  'HAL': '#FFA500', 'HE3': '#FFB6C1', 'HEX': '#DDA0DD', 'KR': '#EE82EE',
-  'LES': '#DDA0DD', 'LIO': '#F0E68C', 'LST': '#D2B48C', 'MGS': '#90EE90',
-  'N': '#87CEEB', 'NE': '#ADD8E6', 'O': '#B0C4DE', 'REO': '#9B59B6',
-  'SCR': '#C0C0C0', 'TCO': '#E5E4E2', 'TIO': '#D3D3D3', 'TS': '#A9A9A9',
-  'ZIR': '#F5F5DC'
-}
 
 const ILLEGAL_CHARS = /[!@#$%^&*()_+{}[\]|\\:;"'<>,.?/~`]/;
 
@@ -67,6 +49,11 @@ export default function PlanetSearch({ onSearch }) {
       m.name.includes(mineralSearch)
     )
   }, [mineralList, mineralSearch])
+
+  // 在组件挂载时初始化缓存，确保只执行一次
+  useEffect(() => {
+    initPlanetsCache()
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -183,53 +170,7 @@ export default function PlanetSearch({ onSearch }) {
             }
 
             const filteredPlanets = planets.filter(planet => {
-              // 重力筛选
-              if (hasGravityFilter) {
-                const gravity = parseFloat(planet.Gravity) || 0
-                let gravityMatch = false
-                if (filters.gravity.includes('high') && gravity >= 1.5) gravityMatch = true
-                if (filters.gravity.includes('mid') && gravity >= 0.5 && gravity <= 1.5) gravityMatch = true
-                if (filters.gravity.includes('low') && gravity <= 0.5) gravityMatch = true
-                if (!gravityMatch) return false
-              }
-
-              // 温度筛选
-              if (hasTempFilter) {
-                const temp = parseFloat(planet.Temperature) || 0
-                let tempMatch = false
-                if (filters.temperature.includes('high') && temp >= 50) tempMatch = true
-                if (filters.temperature.includes('mid') && temp >= -50 && temp <= 50) tempMatch = true
-                if (filters.temperature.includes('low') && temp <= -50) tempMatch = true
-                if (!tempMatch) return false
-              }
-
-              // 压力筛选
-              if (hasPressureFilter) {
-                const pressure = parseFloat(planet.Pressure) || 0
-                let pressureMatch = false
-                if (filters.pressure.includes('high') && pressure >= 2) pressureMatch = true
-                if (filters.pressure.includes('mid') && pressure >= 0.1 && pressure <= 2) pressureMatch = true
-                if (filters.pressure.includes('low') && pressure <= 0.1) pressureMatch = true
-                if (!pressureMatch) return false
-              }
-
-              // 材质筛选
-              if (hasSurfaceFilter) {
-                const isRocky = planet.Surface === 'True'
-                let surfaceMatch = false
-                if (filters.surface.includes('rocky') && isRocky) surfaceMatch = true
-                if (filters.surface.includes('gaseous') && !isRocky) surfaceMatch = true
-                if (!surfaceMatch) return false
-              }
-
-              // 矿物筛选 - 必须包含所有选择的矿物
-              if (hasMineralFilter) {
-                const planetMinerals = new Set(planet.Resources?.map(r => r.Ticker) || [])
-                const hasAllMinerals = filters.minerals.every(m => planetMinerals.has(m))
-                if (!hasAllMinerals) return false
-              }
-
-              return true
+              return applyPlanetFilters(planet, filters)
             })
 
             if (filteredPlanets.length > 0) {
@@ -327,23 +268,22 @@ export default function PlanetSearch({ onSearch }) {
 
   return (
     <div style={{
-      width: '100%',
-      maxWidth: '800px',
-      margin: '0 auto 10px',
-      padding: '6px 12px',
+      display: 'inline-block',
+      margin: '0 auto 4px',
+      padding: '3px 6px',
       background: 'rgba(10, 20, 40, 0.95)',
-      borderRadius: '8px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: '4px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
       border: '1px solid rgba(0, 255, 255, 0.3)',
       fontFamily: 'Roboto Mono, monospace'
     }}>
       <div style={{
         display: 'flex',
-        gap: '10px',
-        flexWrap: 'wrap',
+        gap: '6px',
+        flexWrap: 'nowrap',
         alignItems: 'center'
       }}>
-        <div style={{ width: '160px', position: 'relative' }}>
+        <div style={{ width: '140px', position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
@@ -352,13 +292,13 @@ export default function PlanetSearch({ onSearch }) {
             onKeyDown={handleKeyDown}
             onFocus={() => setShowHistory(true)}
             onBlur={() => setTimeout(() => setShowHistory(false), 200)}
-            placeholder="搜索星球/扇区"
+            placeholder="搜索"
             style={{
               width: '100%',
-              padding: '8px 10px',
+              padding: '6px 8px',
               fontSize: '12px',
               border: `1px solid ${inputError ? '#FF4500' : 'rgba(0, 255, 255, 0.3)'}`,
-              borderRadius: '6px',
+              borderRadius: '4px',
               background: 'rgba(0, 0, 0, 0.3)',
               color: '#FFFFFF',
               outline: 'none',
@@ -466,35 +406,34 @@ export default function PlanetSearch({ onSearch }) {
           onClick={handleSearch}
           disabled={isLoading || !!inputError}
           style={{
-            padding: '8px 14px',
+            padding: '5px 10px',
             fontSize: '12px',
             fontWeight: 'bold',
             background: isLoading || !!inputError ? 'rgba(0, 255, 255, 0.3)' : '#00FFFF',
             color: isLoading || !!inputError ? 'rgba(255,255,255,0.5)' : '#0a0a0f',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '4px',
             cursor: isLoading || !!inputError ? 'not-allowed' : 'pointer',
-            minWidth: '60px',
-            minHeight: '32px',
+            minWidth: '40px',
+            minHeight: '26px',
             transition: 'all 0.2s',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '6px'
-          }}
-        >
+            gap: '4px'
+          }}>
           {isLoading ? (
             <>
               <span style={{
                 display: 'inline-block',
-                width: '12px',
-                height: '12px',
+                width: '10px',
+                height: '10px',
                 border: '2px solid transparent',
                 borderTop: '2px solid currentColor',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }} />
-              搜索中...
+              搜索中
             </>
           ) : '搜索'}
         </button>
@@ -502,19 +441,18 @@ export default function PlanetSearch({ onSearch }) {
         <button
           onClick={handleReset}
           style={{
-            padding: '8px 14px',
+            padding: '5px 10px',
             fontSize: '12px',
             fontWeight: 'bold',
             background: 'transparent',
             color: '#00FFFF',
             border: '1px solid #00FFFF',
-            borderRadius: '6px',
+            borderRadius: '4px',
             cursor: 'pointer',
-            minWidth: '60px',
-            minHeight: '32px',
+            minWidth: '40px',
+            minHeight: '26px',
             transition: 'all 0.2s'
-          }}
-        >
+          }}>
           重置
         </button>
 
@@ -526,20 +464,20 @@ export default function PlanetSearch({ onSearch }) {
             color: showAdvanced ? '#00FFFF' : '#88ccff',
             cursor: 'pointer',
             fontSize: '12px',
-            padding: '8px 12px',
-            borderRadius: '6px',
+            padding: '5px 8px',
+            borderRadius: '4px',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            minHeight: '32px',
+            gap: '4px',
+            minHeight: '26px',
             transition: 'all 0.2s'
-          }}
-        >
-          高级筛选
+          }}>
+          高级
           <span style={{
             transition: 'transform 0.3s ease-in-out',
             transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
-            display: 'inline-block'
+            display: 'inline-block',
+            fontSize: '9px'
           }}>
             ▼
           </span>
