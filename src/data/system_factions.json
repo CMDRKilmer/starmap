@@ -23,13 +23,7 @@
         "name": "Antares Initiative",
         "count": 129
       }
-    ],
-    "colorMap": {
-      "IC": "#4CAF50",
-      "NC": "#2196F3",
-      "AI": "#FF9800",
-      "CI": "#9C27B0"
-    }
+    ]
   },
   "systemFactions": {
     "ccb58f3608aa8d7305d677f3e417e7da": null,

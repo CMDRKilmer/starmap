@@ -3,6 +3,14 @@ import { OrbitControls, Stars, Text, Line } from '@react-three/drei'
 import { useMemo, useState, useRef } from 'react'
 import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem, FACTION_COLORS } from './utils/dataParser'
 import { groupBySector, getSectorColor } from './utils/sectorCalculator'
+import PlanetSearch from './components/PlanetSearch'
+
+// 根据环境参数值获取颜色
+function getEnvColor(value, normalValue, lowThreshold, highThreshold) {
+  if (value > highThreshold) return '#FF4500' // 高值红色
+  if (value < lowThreshold) return '#1E90FF' // 低值蓝色
+  return '#32CD32' // 正常值绿色
+}
 
 const SCALE = 1
 
@@ -154,6 +162,8 @@ function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem }) {
 export default function App() {
   const [selectedSystem, setSelectedSystem] = useState(null)
   const [hoveredSystem, setHoveredSystem] = useState(null)
+  const [searchResults, setSearchResults] = useState(null)
+  const [isSearching, setIsSearching] = useState(false)
   const controlsRef = useRef()
 
   const handleSystemSelect = (system) => {
@@ -215,6 +225,22 @@ export default function App() {
           拖拽旋转 · 滚轮缩放 · 右键平移 · 点击查看详情
         </p>
       </div>
+      
+      <div style={{
+        position: 'absolute',
+        top: 80,
+        left: 20,
+        right: 20,
+        zIndex: 100
+      }}>
+        <PlanetSearch
+          onSearch={(result) => {
+            setSearchResults(result)
+            setIsSearching(false)
+          }}
+          isSearching={isSearching}
+        />
+      </div>
 
       <div style={{
         position: 'absolute',
@@ -271,7 +297,7 @@ export default function App() {
           position: 'absolute',
           bottom: 20,
           left: 20,
-          width: '320px',
+          width: '420px',
           background: 'rgba(10, 20, 40, 0.95)',
           border: '1px solid rgba(0, 255, 255, 0.5)',
           borderRadius: '8px',
@@ -305,45 +331,77 @@ export default function App() {
             {selectedSystem && (
               <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid rgba(0, 255, 255, 0.3)' }}>
                 <div style={{ color: '#88ccff', marginBottom: '8px' }}>星球 ({getPlanetsBySystem(selectedSystem.NaturalId).length}个):</div>
-                <div style={{ maxHeight: '250px', overflow: 'auto', fontSize: '13px' }}>
+                <div style={{ maxHeight: '300px', overflowY: 'auto', overflowX: 'hidden', fontSize: '13px' }}>
                   {getPlanetsBySystem(selectedSystem.NaturalId).map((planet, index) => (
                     <div key={index} style={{ 
-                      padding: '10px 12px', 
-                      marginBottom: '6px',
+                      padding: '20px 22px', 
+                      marginBottom: '12px',
                       background: 'rgba(0, 255, 255, 0.05)',
-                      borderRadius: '4px'
+                      borderRadius: '6px',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}>
-                      <div style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '5px', fontSize: '14px' }}>
+                      <div style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '8px', fontSize: '16px' }}>
                         {planet.Name}
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px', opacity: 0.9 }}>
-                        <span>重力: {parseFloat(planet.Gravity).toFixed(2)}g</span>
-                        <span>温度: {parseFloat(planet.Temperature).toFixed(0)}°C</span>
-                        <span>压力: {parseFloat(planet.Pressure).toFixed(2)}</span>
+                      <div style={{ display: 'flex', gap: '12px', opacity: 0.9, fontSize: '14px', flexWrap: 'wrap' }}>
+                        <span style={{ color: '#FFFFFF' }}>重力: <span style={{ color: getEnvColor(parseFloat(planet.Gravity), 1, 0.5, 1.5) }}>{parseFloat(planet.Gravity).toFixed(2)}g</span></span>
+                        <span style={{ color: '#FFFFFF' }}>温度: <span style={{ color: getEnvColor(parseFloat(planet.Temperature), 20, -50, 50) }}>{parseFloat(planet.Temperature).toFixed(0)}°C</span></span>
+                        <span style={{ color: '#FFFFFF' }}>压力: <span style={{ color: getEnvColor(parseFloat(planet.Pressure), 1, 0.1, 2) }}>{parseFloat(planet.Pressure).toFixed(2)}</span></span>
+                        {planet.Fertility && planet.Fertility !== '-1' && (
+                          <span style={{ color: '#FFFFFF' }}>肥沃度: <span style={{ color: getEnvColor(parseFloat(planet.Fertility), 0, -0.5, 0.5) }}>{parseFloat(planet.Fertility).toFixed(2)}</span></span>
+                        )}
+                        {planet.Surface && (
+                          <span style={{ color: '#FFFFFF' }}>类型: <span style={{ color: planet.Surface === 'True' ? '#FFA500' : '#87CEEB' }}>{planet.Surface === 'True' ? '岩质' : '气态'}</span></span>
+                        )}
+                        {/* COGC 信息已注释掉 */}
+                        {/* {planet.COGCStatus && (
+                          <span style={{ color: '#FFFFFF' }}>COGC: <span style={{ color: '#00FFFF' }}>{planet.COGCStatus}</span></span>
+                        )}
+                        {planet.COGCCategory && (
+                          <span style={{ color: '#FFFFFF' }}>类别: <span style={{ color: '#00FFFF' }}>{planet.COGCCategory}</span></span>
+                        )} */}
                       </div>
-                      <div style={{ marginTop: '6px', fontSize: '11px' }}>
-                        设施: 
-                        {planet.HasLocalMarket && <span style={{ color: '#00FF00', marginRight: '6px', textShadow: '0 0 5px rgba(0,255,0,0.5)' }}>本地市场</span>}
-                        {planet.HasChamberOfCommerce && <span style={{ color: '#00FFFF', marginRight: '6px', textShadow: '0 0 5px rgba(0,255,255,0.5)' }}>商会</span>}
-                        {planet.HasWarehouse && <span style={{ color: '#FFD700', marginRight: '6px', textShadow: '0 0 5px rgba(255,215,0,0.5)' }}>仓库</span>}
-                        {planet.HasAdministrationCenter && <span style={{ color: '#FF00FF', marginRight: '6px', textShadow: '0 0 5px rgba(255,0,255,0.5)' }}>行政中心</span>}
-                        {planet.HasShipyard && <span style={{ color: '#FF4500', marginRight: '6px', textShadow: '0 0 5px rgba(255,69,0,0.5)' }}>造船厂</span>}
+                      <div style={{ marginTop: '8px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        <span style={{ color: '#FFFFFF' }}>设施: </span>
+                        {planet.HasLocalMarket && <span style={{ color: '#FFFFFF', textShadow: '0 0 5px rgba(255,255,255,0.5)' }}>本地市场</span>}
+                        {planet.HasChamberOfCommerce && <span style={{ color: '#FFFFFF', textShadow: '0 0 5px rgba(255,255,255,0.5)' }}>商会</span>}
+                        {planet.HasWarehouse && <span style={{ color: '#FFFFFF', textShadow: '0 0 5px rgba(255,255,255,0.5)' }}>仓库</span>}
+                        {planet.HasAdministrationCenter && <span style={{ color: '#FFFFFF', textShadow: '0 0 5px rgba(255,255,255,0.5)' }}>行政中心</span>}
+                        {planet.HasShipyard && <span style={{ color: '#FFFFFF', textShadow: '0 0 5px rgba(255,255,255,0.5)' }}>造船厂</span>}
                       </div>
+                      {planet.Resources && planet.Resources.length > 0 && (
+                        <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(0, 255, 255, 0.3)' }}>
+                          <div style={{ color: '#88ccff', marginBottom: '8px', fontSize: '13px' }}>矿产:</div>
+                          <div style={{ gap: '8px', display: 'flex', flexDirection: 'column' }}>
+                            {planet.Resources.map((resource, index) => (
+                              <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                  <span style={{ color: '#FFFFFF' }}>{resource.Ticker} ({resource.Type})</span>
+                                  <span style={{ color: '#FFFFFF' }}>{(resource.Factor * 100).toFixed(1)}%</span>
+                                </div>
+                                <div style={{ width: '100%', height: '6px', background: 'rgba(0, 255, 255, 0.2)', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div 
+                                    style={{
+                                      width: `${Math.min(resource.Factor * 100, 100)}%`, 
+                                      height: '100%', 
+                                      background: '#00FFFF',
+                                      borderRadius: '3px'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
             
-            {/* 空间站信息 */}
-            {selectedSystem && (
-              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0, 255, 255, 0.3)' }}>
-                <div style={{ color: '#88ccff', marginBottom: '8px' }}>空间站 (CX):</div>
-                <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                  暂无空间站数据
-                </div>
-              </div>
-            )}
+
           </div>
           {selectedSystem && (
             <div style={{

@@ -1,9 +1,9 @@
-import systemsData from '../data/systems.csv?raw'
 import linksData from '../data/system_links.csv?raw'
 import systemStarsData from '../data/system_stars.json'
 import factionData from '../data/system_factions.json'
 import systemPlanetsData from '../data/system_planets.csv?raw'
 import planetDetailData from '../data/planet_detail.csv?raw'
+import planetResourcesData from '../data/planet_resources.csv?raw'
 
 export function parseCSV(csvString) {
   const lines = csvString.trim().split('\n')
@@ -43,8 +43,8 @@ export function parseSystems() {
       Connections: system.Connections || []
     }))
   }
-  // 如果 JSON 数据不可用，回退到 CSV
-  return parseCSV(systemsData)
+  // JSON 数据不可用时返回空数组
+  return []
 }
 
 export function parseLinks() {
@@ -125,10 +125,96 @@ export function parsePlanetDetail() {
   return parseCSV(planetDetailData)
 }
 
+// 解析星球资源数据
+export function parsePlanetResources() {
+  return parseCSV(planetResourcesData)
+}
+
+// COGC 相关代码已注释掉
+/*
+// 从 FIO API 获取星球数据
+let fioPlanetsData = null
+
+// 异步获取 FIO 星球数据
+export async function fetchFIOPlanetsData() {
+  console.log('开始获取 FIO 星球数据...')
+  try {
+    // 添加 CORS 头信息
+    const response = await fetch('https://rest.fnar.net/planet/allplanets/full', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    
+    console.log('FIO API 响应状态:', response.status)
+    
+    if (response.ok) {
+      fioPlanetsData = await response.json()
+      console.log('FIO 星球数据获取成功:', fioPlanetsData ? fioPlanetsData.length : 0, '个星球')
+      // 测试数据
+      if (fioPlanetsData && fioPlanetsData.length > 0) {
+        console.log('第一个星球数据:', {
+          PlanetNaturalId: fioPlanetsData[0].PlanetNaturalId,
+          COGCProgramStatus: fioPlanetsData[0].COGCProgramStatus,
+          ProductionFees: fioPlanetsData[0].ProductionFees ? fioPlanetsData[0].ProductionFees.length : 0
+        })
+      }
+    } else {
+      console.error('获取 FIO 星球数据失败:', response.status, await response.text())
+    }
+  } catch (error) {
+    console.error('获取 FIO 星球数据出错:', error)
+    // 使用本地数据作为 fallback
+    console.log('使用本地数据作为 fallback')
+    fioPlanetsData = [
+      {
+        PlanetNaturalId: 'AJ-120a',
+        COGCProgramStatus: 'ACTIVE',
+        ProductionFees: [
+          { Category: 'AGRICULTURE' }
+        ]
+      },
+      {
+        PlanetNaturalId: 'AJ-120b',
+        COGCProgramStatus: 'ON_STRIKE',
+        ProductionFees: [
+          { Category: 'RESOURCE_EXTRACTION' }
+        ]
+      },
+      {
+        PlanetNaturalId: 'AJ-120c',
+        COGCProgramStatus: 'PLANNED',
+        ProductionFees: [
+          { Category: 'METALLURGY' }
+        ]
+      },
+      {
+        PlanetNaturalId: 'AJ-120d',
+        COGCProgramStatus: 'ACTIVE',
+        ProductionFees: [
+          { Category: 'ELECTRONICS' }
+        ]
+      },
+      {
+        PlanetNaturalId: 'AJ-120e',
+        COGCProgramStatus: 'ACTIVE',
+        ProductionFees: [
+          { Category: 'FOOD_INDUSTRIES' }
+        ]
+      }
+    ]
+    console.log('使用本地 fallback 数据:', fioPlanetsData.length, '个星球')
+  }
+  return fioPlanetsData
+}
+*/
+
 // 获取指定系统的所有星球（包含设施信息）
 export function getPlanetsBySystem(systemNaturalId) {
   const allPlanets = parseSystemPlanets()
   const allPlanetDetails = parsePlanetDetail()
+  const allPlanetResources = parsePlanetResources()
   
   // 创建星球详情映射
   const planetDetailMap = {}
@@ -138,11 +224,28 @@ export function getPlanetsBySystem(systemNaturalId) {
     }
   })
   
+  // 创建星球资源映射
+  const planetResourcesMap = {}
+  allPlanetResources.forEach(resource => {
+    if (resource.Planet) {
+      if (!planetResourcesMap[resource.Planet]) {
+        planetResourcesMap[resource.Planet] = []
+      }
+      planetResourcesMap[resource.Planet].push({
+        Ticker: resource.Ticker,
+        Type: resource.Type,
+        Factor: parseFloat(resource.Factor) || 0
+      })
+    }
+  })
+  
   // 系统NaturalId是星球ID的前缀（如 VH-331 匹配 VH-331a, VH-331b 等）
   return allPlanets
     .filter(planet => planet.NaturalId && planet.NaturalId.startsWith(systemNaturalId))
     .map(planet => {
       const detail = planetDetailMap[planet.NaturalId]
+      const resources = planetResourcesMap[planet.NaturalId] || []
+      
       return {
         ...planet,
         // 星球设施
@@ -150,7 +253,15 @@ export function getPlanetsBySystem(systemNaturalId) {
         HasChamberOfCommerce: detail ? detail.HasChamberOfCommerce === 'True' : false,
         HasWarehouse: detail ? detail.HasWarehouse === 'True' : false,
         HasAdministrationCenter: detail ? detail.HasAdministrationCenter === 'True' : false,
-        HasShipyard: detail ? detail.HasShipyard === 'True' : false
+        HasShipyard: detail ? detail.HasShipyard === 'True' : false,
+        // 环境数据
+        Gravity: detail ? detail.Gravity : null,
+        Temperature: detail ? detail.Temperature : null,
+        Pressure: detail ? detail.Pressure : null,
+        Fertility: detail ? detail.Fertility : null,
+        Surface: detail ? detail.Surface : null,
+        // 资源数据
+        Resources: resources
       }
     })
 }

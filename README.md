@@ -35,8 +35,7 @@ starmap/
 │   │   ├── system_factions.json # 派系数据
 │   │   └── planet_detail.csv   # 星球详细信息
 │   └── utils/                  # 工具函数
-│       ├── dataParser.js       # 数据解析器
-│       ├── factionColors.js    # 派系颜色配置
+│       ├── dataParser.js       # 数据解析器（包含派系颜色配置）
 │       └── sectorCalculator.js # 扇区计算
 ├── index.html
 ├── package.json
