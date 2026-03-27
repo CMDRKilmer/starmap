@@ -1,6 +1,8 @@
 import { FACTION_COLORS, FACTION_NAMES } from './colors'
 
 const FIO_DATA_REPO = 'https://raw.githubusercontent.com/CMDRKilmer/fiodata/main/data'
+const LOCAL_DATA_PATH = '../../fiodata/data'
+const USE_LOCAL_FALLBACK = true
 
 let systemsCache = null
 let linksCache = null
@@ -12,17 +14,37 @@ let initStarted = false
 let initPromise = null
 let systemsPlanetsMap = null
 
+async function fetchLocalFile(endpoint) {
+  try {
+    const response = await fetch(`${LOCAL_DATA_PATH}/${endpoint}`)
+    if (!response.ok) {
+      return null
+    }
+    return await response.text()
+  } catch {
+    return null
+  }
+}
+
 export async function fetchFromGitHub(endpoint) {
   const url = `${FIO_DATA_REPO}/${endpoint}`
   try {
     const response = await fetch(url)
     if (!response.ok) {
       console.warn(`[DataFetch] Failed to fetch ${endpoint}: ${response.status}`)
+      if (USE_LOCAL_FALLBACK) {
+        console.log(`[DataFetch] Falling back to local ${endpoint}`)
+        return await fetchLocalFile(endpoint)
+      }
       return null
     }
     return await response.text()
   } catch (error) {
     console.error(`[DataFetch] Error fetching ${endpoint}:`, error)
+    if (USE_LOCAL_FALLBACK) {
+      console.log(`[DataFetch] Falling back to local ${endpoint}`)
+      return await fetchLocalFile(endpoint)
+    }
     return null
   }
 }
