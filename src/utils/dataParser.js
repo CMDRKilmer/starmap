@@ -1,3 +1,5 @@
+import { FACTION_COLORS, FACTION_NAMES } from './colors'
+
 const FIO_DATA_REPO = 'https://raw.githubusercontent.com/CMDRKilmer/fiodata/main/data'
 
 let systemsCache = null
@@ -195,38 +197,14 @@ export function getSystemFaction(systemId) {
 }
 
 export function getSystemFactionColor(systemId) {
-  const FACTION_COLORS = {
-    'TAIYI': '#FF6B6B',
-    'EU': '#4ECDC4',
-    'US': '#45B7D1',
-    'CHINA': '#FFE66D',
-    'INDIA': '#FF922B',
-    'JAPAN': '#CC5DE8',
-    'KR': '#845EF7',
-    'BR': '#94D82D',
-    'RU': '#FF8787'
-  }
-
   const factionCode = getSystemFaction(systemId)
   if (factionCode) {
     return FACTION_COLORS[factionCode] || '#FFFFFF'
   }
-  return '#FFFFFF'
+  return '#808080'
 }
 
 export function getSystemFactionName(systemId) {
-  const FACTION_NAMES = {
-    'TAIYI': '太乙',
-    'EU': '欧盟',
-    'US': '美国',
-    'CHINA': '中国',
-    'INDIA': '印度',
-    'JAPAN': '日本',
-    'KR': '韩国',
-    'BR': '巴西',
-    'RU': '俄罗斯'
-  }
-
   const factionCode = getSystemFaction(systemId)
   if (factionCode) {
     return FACTION_NAMES[factionCode] || 'Unknown'
