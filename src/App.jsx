@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Stars, Text, Line } from '@react-three/drei'
 import { useMemo, useState, useRef, memo, useCallback, useEffect } from 'react'
-import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem } from './utils/dataParser'
+import { parseSystems, parseLinks, getSystemFactionColor, getSystemFactionName, getPlanetsBySystem, loadAllData, isDataLoaded } from './utils/dataParser'
 import { groupBySector, getSectorColor } from './utils/sectorCalculator'
 import { FACTION_COLORS, UI_THEME } from './utils/colors'
 import PlanetSearch from './components/PlanetSearch'
@@ -143,10 +143,15 @@ const SectorBounds = memo(function SectorBounds({ sectors }) {
   )
 })
 
-function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem, searchedSystems }) {
-  const systems = useMemo(() => parseSystems(), [])
-  const links = useMemo(() => parseLinks(), [])
-  const sectors = useMemo(() => groupBySector(systems), [systems])
+function GalaxyMap({ onSystemSelect, selectedSystem, hoveredSystem, searchedSystems, systems, links, sectors, isLoading }) {
+  if (isLoading) {
+    return (
+      <mesh>
+        <sphereGeometry args={[5, 16, 16]} />
+        <meshBasicMaterial color="#00ffff" wireframe />
+      </mesh>
+    )
+  }
 
   return (
     <>
@@ -177,7 +182,20 @@ export default function App() {
   const [searchResults, setSearchResults] = useState(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchedSystems, setSearchedSystems] = useState(new Set())
+  const [isLoading, setIsLoading] = useState(true)
+  const [dataReady, setDataReady] = useState(false)
   const controlsRef = useRef()
+
+  useEffect(() => {
+    async function init() {
+      console.log('[App] Loading data from GitHub...')
+      await loadAllData()
+      setDataReady(true)
+      setIsLoading(false)
+      console.log('[App] Data loaded successfully')
+    }
+    init()
+  }, [])
 
   const handleSystemSelect = (system) => {
     setSelectedSystem(system)
@@ -187,10 +205,20 @@ export default function App() {
     setHoveredSystem(system)
   }
 
+  const systems = useMemo(() => {
+    if (!dataReady) return []
+    return parseSystems()
+  }, [dataReady])
+
+  const links = useMemo(() => {
+    if (!dataReady) return []
+    return parseLinks()
+  }, [dataReady])
+
   const sectors = useMemo(() => {
-    const systems = parseSystems()
+    if (!dataReady) return {}
     return groupBySector(systems)
-  }, [])
+  }, [systems, dataReady])
 
   const handleSectorClick = (sectorId) => {
     const sector = sectors[sectorId]
@@ -214,6 +242,10 @@ export default function App() {
           selectedSystem={selectedSystem}
           hoveredSystem={handleHover}
           searchedSystems={searchedSystems}
+          systems={systems}
+          links={links}
+          sectors={sectors}
+          isLoading={isLoading}
         />
         <OrbitControls
           ref={controlsRef}
@@ -236,10 +268,10 @@ export default function App() {
           ★ 星系地图 / STAR MAP
         </h1>
         <p style={{ fontSize: '12px', opacity: 0.7, fontFamily: 'Roboto Mono, monospace' }}>
-          拖拽旋转 · 滚轮缩放 · 右键平移 · 点击查看详情
+          {isLoading ? '正在从 GitHub 加载数据...' : '拖拽旋转 · 滚轮缩放 · 右键平移 · 点击查看详情'}
         </p>
       </div>
-      
+
       <div style={{
         position: 'absolute',
         top: 20,
@@ -251,7 +283,6 @@ export default function App() {
           onSearch={(result) => {
             setSearchResults(result)
             setIsSearching(false)
-            // 更新搜索到的系统集合
             const systemIds = new Set()
             if (result?.results) {
               result.results.forEach(item => {
@@ -298,15 +329,14 @@ export default function App() {
             <div><span style={{ color: '#88ccff' }}>ID:</span> {(selectedSystem || hoveredSystem).NaturalId}</div>
             <div>
               <span style={{ color: '#88ccff' }}>派系:</span>
-              <span style={{ 
+              <span style={{
                 color: getSystemFactionColor((selectedSystem || hoveredSystem).SystemId),
                 fontWeight: 'bold'
               }}>
                 {getSystemFactionName((selectedSystem || hoveredSystem).SystemId)}
               </span>
             </div>
-            
-            {/* 星球列表 */}
+
             {selectedSystem && (
               <div style={{ marginTop: '15px', paddingTop: '10px', borderTop: '1px solid rgba(0, 255, 255, 0.3)' }}>
                 <div style={{ color: '#88ccff', marginBottom: '8px' }}>星球 ({getPlanetsBySystem(selectedSystem.NaturalId).length}个):</div>
@@ -341,7 +371,7 @@ export default function App() {
         opacity: 0.5,
         fontFamily: 'Roboto Mono, monospace'
       }}>
-        系统数量: {parseSystems().length} | 连接数: {parseLinks().length}
+        {isLoading ? '加载中...' : `系统数量: ${systems.length} | 连接数: ${links.length}`}
       </div>
 
       <Legend />

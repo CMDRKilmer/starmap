@@ -1,19 +1,47 @@
-import linksData from '../data/system_links.csv?raw'
-import systemStarsData from '../data/system_stars.json'
-import factionData from '../data/system_factions.json'
-import systemPlanetsData from '../data/system_planets.csv?raw'
-import planetDetailData from '../data/planet_detail.csv?raw'
-import planetResourcesData from '../data/planet_resources.csv?raw'
-import { FACTION_COLORS, FACTION_NAMES } from './colors'
+const FIO_DATA_REPO = 'https://raw.githubusercontent.com/CMDRKilmer/fiodata/main/data'
 
 let systemsCache = null
 let linksCache = null
 let planetsCache = null
 let planetsDetailCache = null
 let planetsResourcesCache = null
+let factionDataCache = null
+let initStarted = false
+let initPromise = null
+let systemsPlanetsMap = null
+
+export async function fetchFromGitHub(endpoint) {
+  const url = `${FIO_DATA_REPO}/${endpoint}`
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.warn(`[DataFetch] Failed to fetch ${endpoint}: ${response.status}`)
+      return null
+    }
+    return await response.text()
+  } catch (error) {
+    console.error(`[DataFetch] Error fetching ${endpoint}:`, error)
+    return null
+  }
+}
+
+export async function fetchJSONFromGitHub(endpoint) {
+  const text = await fetchFromGitHub(endpoint)
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    console.error(`[DataFetch] Failed to parse JSON ${endpoint}:`, error)
+    return null
+  }
+}
 
 export function parseCSV(csvString) {
+  if (!csvString) return []
+
   const lines = csvString.trim().split('\n')
+  if (lines.length < 2) return []
+
   const headers = lines[0].split(',').map(h => h.trim())
   const data = []
 
@@ -22,7 +50,7 @@ export function parseCSV(csvString) {
     const obj = {}
     headers.forEach((header, index) => {
       const value = values[index]
-      if (['PositionX', 'PositionY', 'PositionZ'].includes(header)) {
+      if (['PositionX', 'PositionY', 'PositionZ', 'Luminosity', 'Mass', 'MassSol'].includes(header)) {
         obj[header] = parseFloat(value) || 0
       } else {
         obj[header] = value
@@ -34,114 +62,16 @@ export function parseCSV(csvString) {
   return data
 }
 
-export function parseSystems() {
-  if (systemsCache) return systemsCache
-
-  if (systemStarsData && Array.isArray(systemStarsData)) {
-    systemsCache = systemStarsData.map(system => ({
-      SystemId: system.SystemId,
-      NaturalId: system.NaturalId,
-      Name: system.Name,
-      Type: system.Type,
-      PositionX: system.PositionX,
-      PositionY: system.PositionY,
-      PositionZ: system.PositionZ,
-      SectorId: system.SectorId,
-      SubSectorId: system.SubSectorId,
-      Connections: system.Connections || []
-    }))
-    return systemsCache
-  }
-  return []
-}
-
-export function parseLinks() {
-  if (linksCache) return linksCache
-  linksCache = parseCSV(linksData)
-  return linksCache
-}
-
-// 获取系统派系代码
-export function getSystemFaction(systemId) {
-  if (!factionData || !factionData.systemFactions) {
-    return null;
-  }
-  return factionData.systemFactions[systemId] || null;
-}
-
-// 获取系统派系颜色
-export function getSystemFactionColor(systemId) {
-  const factionCode = getSystemFaction(systemId);
-  if (factionCode) {
-    return FACTION_COLORS[factionCode] || '#FFFFFF';
-  }
-  return '#FFFFFF'; // 无派系显示白色
-}
-
-// 获取系统派系名称
-export function getSystemFactionName(systemId) {
-  const factionCode = getSystemFaction(systemId);
-  if (factionCode) {
-    return FACTION_NAMES[factionCode] || 'Unknown';
-  }
-  return 'No Faction';
-}
-
-// 获取派系统计信息
-export function getFactionStats() {
-  if (!factionData || !factionData.planetFactions) {
-    return null;
-  }
-  return factionData.planetFactions;
-}
-
-// 解析系统星球数据
-export function parseSystemPlanets() {
-  if (planetsCache) return planetsCache
-  planetsCache = parseCSV(systemPlanetsData)
-  return planetsCache
-}
-
-// 解析星球详细信息
-export function parsePlanetDetail() {
-  if (planetsDetailCache) return planetsDetailCache
-  planetsDetailCache = parseCSV(planetDetailData)
-  return planetsDetailCache
-}
-
-// 解析星球资源数据
-export function parsePlanetResources() {
-  if (planetsResourcesCache) return planetsResourcesCache
-  planetsResourcesCache = parseCSV(planetResourcesData)
-  return planetsResourcesCache
-}
-
-// 全局缓存
-let systemsPlanetsMap = null
-let initStarted = false
-
-// 初始化缓存（在应用启动时调用）
-export function initPlanetsCache() {
-  if (initStarted) return
-  initStarted = true
-
-  if (planetsCache) return planetsCache
-  
-  const allPlanets = parseSystemPlanets()
-  const allPlanetDetails = parsePlanetDetail()
-  const allPlanetResources = parsePlanetResources()
-  
-  // 创建星球详情映射
+function buildPlanetsCache() {
   const planetDetailMap = {}
-  allPlanetDetails.forEach(detail => {
+  planetsDetailCache?.forEach(detail => {
     if (detail.PlanetNaturalId) {
       planetDetailMap[detail.PlanetNaturalId] = detail
     }
   })
-  
-  // 创建星球资源映射
+
   const planetResourcesMap = {}
-  allPlanetResources.forEach(resource => {
+  planetsResourcesCache?.forEach(resource => {
     if (resource.Planet) {
       if (!planetResourcesMap[resource.Planet]) {
         planetResourcesMap[resource.Planet] = []
@@ -153,12 +83,11 @@ export function initPlanetsCache() {
       })
     }
   })
-  
-  // 构建完整的星球数据
-  planetsCache = allPlanets.map(planet => {
+
+  const fullPlanetsCache = planetsCache.map(planet => {
     const detail = planetDetailMap[planet.NaturalId]
     const resources = planetResourcesMap[planet.NaturalId] || []
-    
+
     return {
       ...planet,
       HasLocalMarket: detail ? detail.HasLocalMarket === 'True' : false,
@@ -174,12 +103,12 @@ export function initPlanetsCache() {
       Resources: resources
     }
   })
-  
-  // 构建系统-星球映射
+
+  planetsCache = fullPlanetsCache
+
   systemsPlanetsMap = new Map()
   planetsCache.forEach(planet => {
     if (planet.NaturalId) {
-      // 提取系统ID（如 VH-331a -> VH-331）
       const systemId = planet.NaturalId.replace(/[a-z]$/, '')
       if (!systemsPlanetsMap.has(systemId)) {
         systemsPlanetsMap.set(systemId, [])
@@ -187,34 +116,147 @@ export function initPlanetsCache() {
       systemsPlanetsMap.get(systemId).push(planet)
     }
   })
-  
-  console.log(`[Cache] 已缓存 ${planetsCache.length} 个星球, ${systemsPlanetsMap.size} 个系统`)
-  return planetsCache
 }
 
-// 获取指定系统的所有星球（使用缓存）
-export function getPlanetsBySystem(systemNaturalId) {
-  // 确保缓存已初始化
-  if (!planetsCache) {
-    initPlanetsCache()
+export async function loadAllData() {
+  if (initPromise) {
+    return initPromise
   }
-  
-  // 直接从缓存获取
+
+  initPromise = (async () => {
+    if (initStarted) return
+
+    console.log('[DataFetch] Loading data from GitHub...')
+
+    const [
+      systemStarsData,
+      linksData,
+      systemPlanetsData,
+      planetDetailData,
+      planetResourcesData,
+      systemFactionsData
+    ] = await Promise.all([
+      fetchJSONFromGitHub('systemstars_allstars.json'),
+      fetchFromGitHub('csv_systemlinks.csv'),
+      fetchFromGitHub('csv_systemplanets.csv'),
+      fetchFromGitHub('csv_planetdetail.csv'),
+      fetchFromGitHub('csv_planetresources.csv'),
+      fetchJSONFromGitHub('system_factions.json')
+    ])
+
+    systemsCache = systemStarsData || []
+    linksCache = parseCSV(linksData)
+    planetsCache = parseCSV(systemPlanetsData)
+    planetsDetailCache = parseCSV(planetDetailData)
+    planetsResourcesCache = parseCSV(planetResourcesData)
+    factionDataCache = systemFactionsData || { systemFactions: {}, planetFactions: {} }
+
+    buildPlanetsCache()
+    initStarted = true
+
+    console.log(`[DataFetch] Loaded ${systemsCache.length} systems, ${linksCache.length} links, ${planetsCache.length} planets`)
+  })()
+
+  return initPromise
+}
+
+export function initPlanetsCache() {
+  if (!initStarted) {
+    loadAllData()
+  }
+}
+
+export function parseSystems() {
+  if (!systemsCache) {
+    return []
+  }
+
+  return systemsCache.map(system => ({
+    SystemId: system.SystemId,
+    NaturalId: system.SystemNaturalId || system.NaturalId,
+    Name: system.SystemName || system.Name || system.SystemNaturalId,
+    Type: system.Type,
+    PositionX: system.PositionX,
+    PositionY: system.PositionY,
+    PositionZ: system.PositionZ,
+    SectorId: system.SectorId,
+    SubSectorId: system.SubSectorId,
+    Connections: []
+  }))
+}
+
+export function parseLinks() {
+  return linksCache || []
+}
+
+export function getSystemFaction(systemId) {
+  if (!factionDataCache?.systemFactions) return null
+  return factionDataCache.systemFactions[systemId] || null
+}
+
+export function getSystemFactionColor(systemId) {
+  const FACTION_COLORS = {
+    'TAIYI': '#FF6B6B',
+    'EU': '#4ECDC4',
+    'US': '#45B7D1',
+    'CHINA': '#FFE66D',
+    'INDIA': '#FF922B',
+    'JAPAN': '#CC5DE8',
+    'KR': '#845EF7',
+    'BR': '#94D82D',
+    'RU': '#FF8787'
+  }
+
+  const factionCode = getSystemFaction(systemId)
+  if (factionCode) {
+    return FACTION_COLORS[factionCode] || '#FFFFFF'
+  }
+  return '#FFFFFF'
+}
+
+export function getSystemFactionName(systemId) {
+  const FACTION_NAMES = {
+    'TAIYI': '太乙',
+    'EU': '欧盟',
+    'US': '美国',
+    'CHINA': '中国',
+    'INDIA': '印度',
+    'JAPAN': '日本',
+    'KR': '韩国',
+    'BR': '巴西',
+    'RU': '俄罗斯'
+  }
+
+  const factionCode = getSystemFaction(systemId)
+  if (factionCode) {
+    return FACTION_NAMES[factionCode] || 'Unknown'
+  }
+  return 'No Faction'
+}
+
+export function getFactionStats() {
+  if (!factionDataCache?.planetFactions) return null
+  return factionDataCache.planetFactions
+}
+
+export function getPlanetsBySystem(systemNaturalId) {
+  if (!systemsPlanetsMap) {
+    return []
+  }
   return systemsPlanetsMap.get(systemNaturalId) || []
 }
 
-// 获取所有缓存的星球（用于搜索）
 export function getAllCachedPlanets() {
-  if (!planetsCache) {
-    initPlanetsCache()
-  }
-  return planetsCache
+  return planetsCache || []
 }
 
-// 获取系统-星球映射（用于搜索）
 export function getSystemsPlanetsMap() {
   if (!systemsPlanetsMap) {
-    initPlanetsCache()
+    buildPlanetsCache()
   }
   return systemsPlanetsMap
+}
+
+export function isDataLoaded() {
+  return initStarted && systemsCache !== null
 }

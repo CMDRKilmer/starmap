@@ -51,10 +51,7 @@ export default function PlanetSearch({ onSearch }) {
     )
   }, [mineralList, mineralSearch])
 
-  // 在组件挂载时初始化缓存，确保只执行一次
-  useEffect(() => {
-    initPlanetsCache()
-  }, [])
+  // 移除独立的缓存初始化，由 App.jsx 统一管理数据加载
 
   useEffect(() => {
     const handleClickOutside = (event) => {
