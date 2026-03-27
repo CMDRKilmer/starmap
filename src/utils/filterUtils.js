@@ -33,10 +33,16 @@ export function matchMineralFilter(resources, filter) {
   )
 }
 
+export function matchFertilityFilter(fertility, filter) {
+  if (!filter || filter.length === 0) return true
+  const hasFertility = fertility !== undefined && fertility !== null && fertility !== '' && fertility !== '-1'
+  return filter.some(f => (f === 'yes' && hasFertility))
+}
+
 export function applyPlanetFilters(planet, filters) {
   if (!planet) return false
 
-  const { gravity, temperature, pressure, surface, minerals } = filters
+  const { gravity, temperature, pressure, surface, minerals, fertility } = filters
 
   if (gravity?.length > 0) {
     const g = parseFloat(planet.Gravity) || 0
@@ -59,6 +65,10 @@ export function applyPlanetFilters(planet, filters) {
 
   if (minerals?.length > 0) {
     if (!matchMineralFilter(planet.Resources, minerals)) return false
+  }
+
+  if (fertility?.length > 0) {
+    if (!matchFertilityFilter(planet.Fertility, fertility)) return false
   }
 
   return true

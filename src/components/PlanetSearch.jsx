@@ -20,7 +20,8 @@ export default function PlanetSearch({ onSearch }) {
       temperature: [],
       pressure: [],
       surface: [],
-      minerals: []
+      minerals: [],
+      fertility: []
     }
   })
 
@@ -128,9 +129,10 @@ export default function PlanetSearch({ onSearch }) {
         const hasPressureFilter = filters.pressure.length > 0
         const hasSurfaceFilter = filters.surface.length > 0
         const hasMineralFilter = filters.minerals.length > 0
+        const hasFertilityFilter = (filters.fertility || []).length > 0
 
         // 快速路径：如果没有筛选条件，直接返回所有系统
-        if (!searchInput && !hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter) {
+        if (!searchInput && !hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter && !hasFertilityFilter) {
           resolve(systems)
           return
         }
@@ -157,7 +159,7 @@ export default function PlanetSearch({ onSearch }) {
             const planets = systemsMap.get(system.NaturalId) || []
 
             // 如果没有筛选条件，直接包含所有系统
-            if (!hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter) {
+            if (!hasGravityFilter && !hasTempFilter && !hasPressureFilter && !hasSurfaceFilter && !hasMineralFilter && !hasFertilityFilter) {
               if (planets.length > 0) {
                 results.push({
                   ...system,
@@ -230,7 +232,8 @@ export default function PlanetSearch({ onSearch }) {
       temperature: [],
       pressure: [],
       surface: [],
-      minerals: []
+      minerals: [],
+      fertility: []
     })
     setSuggestions([])
     // 通知父组件清除搜索结果
@@ -242,7 +245,8 @@ export default function PlanetSearch({ onSearch }) {
           temperature: [],
           pressure: [],
           surface: [],
-          minerals: []
+          minerals: [],
+          fertility: []
         },
         results: [],
         isAdvanced: showAdvanced
@@ -253,9 +257,9 @@ export default function PlanetSearch({ onSearch }) {
   const toggleFilter = (category, value) => {
     setFilters(prev => ({
       ...prev,
-      [category]: prev[category].includes(value)
-        ? prev[category].filter(v => v !== value)
-        : [...prev[category], value]
+      [category]: (prev[category] || []).includes(value)
+        ? (prev[category] || []).filter(v => v !== value)
+        : [...(prev[category] || []), value]
     }))
   }
 
@@ -522,6 +526,15 @@ export default function PlanetSearch({ onSearch }) {
               color={level === '高' ? '#FF4500' : level === '中' ? '#FFD700' : '#1E90FF'}
             />
           ))}
+        </FilterGroup>
+
+        <FilterGroup title="肥沃" icon="🌾">
+          <FilterCheckbox
+            label="有肥沃属性"
+            checked={(filters.fertility || []).includes('yes')}
+            onChange={() => toggleFilter('fertility', 'yes')}
+            color="#32CD32"
+          />
         </FilterGroup>
 
         <FilterGroup title="材质" icon="🪨">
