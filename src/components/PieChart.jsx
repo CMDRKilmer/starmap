@@ -1,17 +1,6 @@
 import { useState } from 'react'
 import { MINERAL_COLORS } from '../utils/colors'
-import mineralsData from '../data/minerals_list.json'
-
-// 创建资源代码到中文名称的映射
-const RESOURCE_NAME_MAP = {}
-mineralsData.minerals.forEach(m => {
-  RESOURCE_NAME_MAP[m.code] = m.name
-})
-
-// 获取资源的中文名称
-function getResourceName(ticker) {
-  return RESOURCE_NAME_MAP[ticker] || ticker
-}
+import { getResourceName } from '../utils/resourceUtils'
 
 export default function PieChart({ data, size = 120, onSegmentClick }) {
   const [hoveredSegment, setHoveredSegment] = useState(null)
