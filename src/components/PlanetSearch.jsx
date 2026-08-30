@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { parseSystems, getPlanetsBySystem, initPlanetsCache, getSystemsPlanetsMap } from '../utils/dataParser'
-import { MINERAL_COLORS, UI_THEME } from '../utils/colors'
+import { parseSystems, getSystemsPlanetsMap } from '../utils/dataParser'
+import { MINERAL_COLORS } from '../utils/colors'
 import { applyPlanetFilters } from '../utils/filterUtils'
 import { FilterGroup, FilterCheckbox } from './FilterControls'
 import mineralsData from '../data/minerals_list.json'
 
 const ILLEGAL_CHARS = /[!@#$%^&*()_+{}[\]|\\:;"'<>,.?/~`]/;
 
-export default function PlanetSearch({ onSearch }) {
+export default function PlanetSearch({ onSearch, onSelect }) {
   const [searchInput, setSearchInput] = useState('')
   const [inputError, setInputError] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -35,7 +35,6 @@ export default function PlanetSearch({ onSearch }) {
   const [showMineralDropdown, setShowMineralDropdown] = useState(false)
   const [mineralSearch, setMineralSearch] = useState('')
 
-  const inputRef = useRef(null)
   const suggestionsRef = useRef(null)
   const mineralDropdownRef = useRef(null)
 
@@ -287,7 +286,6 @@ export default function PlanetSearch({ onSearch }) {
       }}>
         <div style={{ width: '140px', position: 'relative' }}>
           <input
-            ref={inputRef}
             type="text"
             value={searchInput}
             onChange={handleInputChange}
@@ -382,6 +380,7 @@ export default function PlanetSearch({ onSearch }) {
                   onClick={() => {
                     setSearchInput(system.Name || system.NaturalId)
                     setSuggestions([])
+                    onSelect?.(system.NaturalId)
                   }}
                   style={{
                     padding: '10px 12px',

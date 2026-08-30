@@ -1,8 +1,8 @@
 import { FACTION_COLORS, FACTION_NAMES } from './colors'
 
 const FIO_DATA_REPO = 'https://raw.githubusercontent.com/CMDRKilmer/fiodata/main/data'
-const LOCAL_DATA_PATH = '../../fiodata/data'
-const USE_LOCAL_FALLBACK = true
+// 本地离线数据（public/data/，由 scripts/build-fio-data.mjs 从 FIO API 重建）
+const LOCAL_DATA_PATH = 'data'
 
 let systemsCache = null
 let linksCache = null
@@ -27,24 +27,21 @@ async function fetchLocalFile(endpoint) {
 }
 
 export async function fetchFromGitHub(endpoint) {
+  // 优先本地离线数据（public/data/，build-fio-data.mjs 重建）；GitHub 源已失效，仅作兜底
+  const local = await fetchLocalFile(endpoint)
+  if (local) {
+    return local
+  }
   const url = `${FIO_DATA_REPO}/${endpoint}`
   try {
     const response = await fetch(url)
     if (!response.ok) {
       console.warn(`[DataFetch] Failed to fetch ${endpoint}: ${response.status}`)
-      if (USE_LOCAL_FALLBACK) {
-        console.log(`[DataFetch] Falling back to local ${endpoint}`)
-        return await fetchLocalFile(endpoint)
-      }
       return null
     }
     return await response.text()
   } catch (error) {
     console.error(`[DataFetch] Error fetching ${endpoint}:`, error)
-    if (USE_LOCAL_FALLBACK) {
-      console.log(`[DataFetch] Falling back to local ${endpoint}`)
-      return await fetchLocalFile(endpoint)
-    }
     return null
   }
 }
@@ -213,7 +210,7 @@ export function parseLinks() {
   return linksCache || []
 }
 
-export function getSystemFaction(systemId) {
+function getSystemFaction(systemId) {
   if (!factionDataCache?.systemFactions) return null
   return factionDataCache.systemFactions[systemId] || null
 }
@@ -234,11 +231,6 @@ export function getSystemFactionName(systemId) {
   return 'No Faction'
 }
 
-export function getFactionStats() {
-  if (!factionDataCache?.planetFactions) return null
-  return factionDataCache.planetFactions
-}
-
 export function getPlanetsBySystem(systemNaturalId) {
   if (!systemsPlanetsMap) {
     return []
@@ -246,17 +238,9 @@ export function getPlanetsBySystem(systemNaturalId) {
   return systemsPlanetsMap.get(systemNaturalId) || []
 }
 
-export function getAllCachedPlanets() {
-  return planetsCache || []
-}
-
 export function getSystemsPlanetsMap() {
   if (!systemsPlanetsMap) {
     buildPlanetsCache()
   }
   return systemsPlanetsMap
-}
-
-export function isDataLoaded() {
-  return initStarted && systemsCache !== null
 }
