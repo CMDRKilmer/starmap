@@ -113,6 +113,8 @@ export default function GalaxyScene({
       <ambientLight intensity={0.3} />
       <pointLight position={[0, 0, 0]} intensity={0.2} color="#ffffff" />
 
+      {/* XYZ 方向标尺现由右下角 AxisGizmoHUD 提供 */}
+
       <SectorBounds sectors={sectors} />
       <SystemLinks links={links} systems={systems} starPositions={starPositions} />
 

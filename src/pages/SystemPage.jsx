@@ -14,6 +14,7 @@ import TimeDriver from '../scene/TimeDriver'
 import SystemScene from '../scene/SystemScene'
 import CameraTween from '../scene/controls/CameraTween'
 import TimeBar from '../hud/TimeBar'
+import AxisGizmoHUD from '../scene/controls/AxisGizmoHUD'
 
 // 行星信息面板（点击行星显示）
 function PlanetInfoPanel({ info, onClose }) {
@@ -360,6 +361,7 @@ export default function SystemPage() {
       {planetInfo && <PlanetInfoPanel info={planetInfo} onClose={() => setPlanetInfo(null)} />}
 
       <TimeBar />
+      <AxisGizmoHUD controlsRef={controlsRef} />
     </div>
   )
 }

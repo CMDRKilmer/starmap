@@ -25,10 +25,12 @@ export default function CameraTween({ controlsRef }) {
       const star = useGalaxyStore.getState().getStar(view.focusedStarId)
       if (!star) return
       // 相机距离 = 最远轨道显示半径 × 1.2（SystemScene 内行星已按 posKm/scale
-      // 缩放渲染，最远轨道即 SYSTEM_VIEW_MAX_RADIUS 单位，故无需再乘 scale）
+      // 缩放渲染，最远轨道即 SYSTEM_VIEW_MAX_RADIUS 单位，故无需再乘 scale）。
+      // 初始视角从 +Y 轴向下俯视行星盘面（之前是 +Z 方向斜视）。
       const dist = SYSTEM_VIEW_MAX_RADIUS * 1.2
       endTarget = new THREE.Vector3(star.position[0], star.position[1], star.position[2])
-      endPos = new THREE.Vector3(star.position[0], star.position[1], star.position[2] + dist)
+      // 略微偏离纯 +Y 方向（加入 +Z 偏移），避免 OrbitControls.up 与视线共线
+      endPos = new THREE.Vector3(star.position[0], star.position[1] + dist, star.position[2] + dist * 0.15)
     } else {
       endTarget = new THREE.Vector3(0, 0, 0)
       endPos = new THREE.Vector3(0, 0, 800)

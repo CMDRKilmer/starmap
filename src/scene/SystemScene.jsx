@@ -385,7 +385,16 @@ export default function SystemScene({ onPlanetClick, conjunctionFocus = null }) 
   const starGlowSize = Math.min(14, Math.max(3, 3 + 4 * Math.log10(luminosity)))
 
   return (
-    <group position={starPos}>
+    // 轨道平面的法线对齐 Three.js +Z（修复视觉上的"Z 反"）：
+    // gameModel.predictPositionKm 做了 x↔y 互换(det=-1, 左手系 → 顺时针看),
+    // 整个 group 绕 X 轴转 -90°: 数据 (x,y,z) → 屏幕 (x,-z,y),
+    //   原 x(横向) → 新 x(横向)
+    //   原 y(深度) → 新 -y(向上)        // 原 z=0 平面朝上
+    //   原 z(向上/向下) → 新 y(深度)
+    // 等价于把"游戏 XZ 平面"立起来当作世界 XY 平面，公转方向变为逆时针。
+    <group position={starPos} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* 局部坐标轴：右下角 HUD 提供，这里不再画 */}
+
       {/* 点击恒星不返回星系图，仅用于观赏 */}
       <Star
         system={{ ...star, SystemId: star.systemId, NaturalId: star.systemId, PositionX: 0, PositionY: 0, PositionZ: 0 }}

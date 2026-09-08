@@ -9,6 +9,7 @@ import { useViewStore } from './stores/viewStore'
 import TimeDriver from './scene/TimeDriver'
 import GalaxyScene from './scene/GalaxyScene'
 import CameraTween from './scene/controls/CameraTween'
+import AxisGizmoHUD from './scene/controls/AxisGizmoHUD'
 import PlanetSearch from './components/PlanetSearch'
 import SectorNav from './components/SectorNav'
 import Legend from './components/Legend'
@@ -197,10 +198,10 @@ export default function App() {
                 <div>
                   <span style={{ color: '#88ccff' }}>派系:</span>
                   <span style={{
-                    color: getSystemFactionColor((selectedSystem || hoveredSystem).SystemId),
+                    color: getSystemFactionColor(selectedSystem || hoveredSystem),
                     fontWeight: 'bold'
                   }}>
-                    {getSystemFactionName((selectedSystem || hoveredSystem).SystemId)}
+                    {getSystemFactionName(selectedSystem || hoveredSystem)}
                   </span>
                 </div>
 
@@ -232,14 +233,17 @@ export default function App() {
 
           <div style={{
             position: 'absolute',
-            bottom: 20,
-            right: 20,
+            bottom: 28,
+            right: 150,
             fontSize: '10px',
             opacity: 0.5,
-            fontFamily: 'Roboto Mono, monospace'
+            fontFamily: 'Roboto Mono, monospace',
+            textAlign: 'right'
           }}>
             {isLoading ? '加载中...' : `系统数量: ${systems.length} | 连接数: ${links.length}`}
           </div>
+
+          <AxisGizmoHUD controlsRef={controlsRef} />
 
           <Legend />
         </>

@@ -6,8 +6,8 @@ import { getSystemFactionColor } from '../../utils/dataParser'
 
 const Star = memo(function Star({ system, position, onClick, onDoubleClick, isSelected, onHover, isSearched, radiusOverride, colorOverride }) {
   const color = useMemo(
-    () => colorOverride ?? getSystemFactionColor(system.SystemId),
-    [colorOverride, system.SystemId],
+    () => colorOverride ?? getSystemFactionColor(system),
+    [colorOverride, system],
   )
   const pos = useMemo(
     () => position ?? [system.PositionX, system.PositionY, system.PositionZ],

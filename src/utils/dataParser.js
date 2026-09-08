@@ -210,21 +210,43 @@ export function parseLinks() {
   return linksCache || []
 }
 
-function getSystemFaction(systemId) {
-  if (!factionDataCache?.systemFactions) return null
-  return factionDataCache.systemFactions[systemId] || null
+function getSystemFaction(system) {
+  if (!system || !factionDataCache) return null
+  // 1) 命中 systemFactions 直接表（FIO 系统级派系）
+  const direct = factionDataCache.systemFactions?.[system.SystemId]
+  if (direct) return direct
+  // 2) 兜底：从 planetFactions 聚合（system_factions.json 中 systemFactions 为空时）
+  return aggregateSystemFactionFromPlanets(system.NaturalId)
 }
 
-export function getSystemFactionColor(systemId) {
-  const factionCode = getSystemFaction(systemId)
+function aggregateSystemFactionFromPlanets(systemNaturalId) {
+  const planetFactions = factionDataCache?.planetFactions
+  if (!planetFactions || !systemNaturalId) return null
+  const planets = systemsPlanetsMap?.get(systemNaturalId) || []
+  if (planets.length === 0) return null
+
+  const counts = Object.create(null)
+  for (const planet of planets) {
+    const code = planetFactions[planet.NaturalId?.toUpperCase()]
+    if (code && FACTION_COLORS[code]) counts[code] = (counts[code] || 0) + 1
+  }
+  const entries = Object.entries(counts)
+  if (entries.length === 0) return null
+  // 多数派；并列时按派系代码字典序
+  entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  return entries[0][0]
+}
+
+export function getSystemFactionColor(system) {
+  const factionCode = getSystemFaction(system)
   if (factionCode) {
     return FACTION_COLORS[factionCode] || '#FFFFFF'
   }
-  return '#808080'
+  return '#FFFFFF'
 }
 
-export function getSystemFactionName(systemId) {
-  const factionCode = getSystemFaction(systemId)
+export function getSystemFactionName(system) {
+  const factionCode = getSystemFaction(system)
   if (factionCode) {
     return FACTION_NAMES[factionCode] || 'Unknown'
   }
